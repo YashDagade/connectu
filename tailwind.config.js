@@ -24,11 +24,11 @@ module.exports = {
             muted: '#9CA3AF',  // Gray-400
           }
         },
-        // Restore original Duke Blue colors
+        // Define duke colors directly for utility classes
+        'duke-blue': '#012169',     // Original Duke Blue
+        'duke-darkblue': '#001A57', // Original Dark Duke Blue
+        'duke-lightblue': '#00539B', // Original Light Duke Blue
         duke: {
-          blue: '#012169',     // Original Duke Blue
-          darkblue: '#001A57', // Original Dark Duke Blue
-          lightblue: '#00539B', // Original Light Duke Blue
           navy: '#003366',     // Original Navy
           accent: '#C84E00',   // Original Duke Orange Accent
           gray: '#4B5563',     // Gray-600

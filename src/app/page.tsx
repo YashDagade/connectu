@@ -243,7 +243,7 @@ export default function LandingPage() {
             <div className="flex justify-center">
               <Link
                 href="/dashboard"
-                className="px-8 py-4 bg-white text-duke-blue rounded-lg font-semibold text-lg shadow-lg hover:bg-gray-100 transition-colors"
+                className="px-8 py-4 bg-duke-darkblue text-white rounded-lg font-semibold text-lg shadow-lg hover:bg-duke-blue transition-colors"
               >
                 Get Started for Free
               </Link>

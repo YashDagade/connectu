@@ -96,7 +96,7 @@ const FormBuilder: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white py-12">
+    <div className="bg-gray-900 text-white py-12 w-full h-full">
       <div className="max-w-4xl mx-auto p-4">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-white mb-2">Create a Connection Form</h1>
@@ -159,11 +159,10 @@ const FormBuilder: React.FC = () => {
                 <div className="w-full md:w-1/4 border-b md:border-b-0 md:border-r border-gray-700 pr-0 md:pr-4 mb-4 md:mb-0">
                   <div className="space-y-2">
                     {questions.map((question, index) => (
-                      <button
+                      <div
                         key={question.id}
-                        type="button"
                         onClick={() => setActiveQuestionIndex(index)}
-                        className={`w-full text-left px-4 py-3 rounded-md ${
+                        className={`w-full text-left px-4 py-3 rounded-md cursor-pointer ${
                           activeQuestionIndex === index
                             ? 'bg-duke-blue text-white'
                             : 'hover:bg-gray-700 text-gray-300'
@@ -186,7 +185,7 @@ const FormBuilder: React.FC = () => {
                             </button>
                           )}
                         </div>
-                      </button>
+                      </div>
                     ))}
                   </div>
                 </div>

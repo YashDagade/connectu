@@ -25,15 +25,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} min-h-screen antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} min-h-screen antialiased bg-gray-900`}>
         <div className="flex min-h-screen flex-col">
           <Navbar />
-          <main className="flex-grow pt-4 pb-8">{children}</main>
-          <footer className="bg-duke-blue text-white py-6">
+          <main className="flex-grow">{children}</main>
+          <footer className="bg-gray-900 text-white py-6 border-t border-gray-800">
             <div className="container mx-auto px-4">
               <div className="flex flex-col md:flex-row justify-between items-center">
                 <div className="mb-4 md:mb-0">
-                  <p className="text-sm">© 2024 ConnectU. All rights reserved.</p>
+                  <p className="text-sm">© 2025 ConnectU. All rights reserved.</p>
                 </div>
                 <div className="flex space-x-4">
                   <a href="#" className="text-white hover:text-gray-300 text-sm">Privacy Policy</a>

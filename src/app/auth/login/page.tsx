@@ -45,7 +45,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 px-4 py-12">
+    <div className="flex items-center justify-center bg-gray-900 px-4 py-12">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <h2 className="text-3xl font-extrabold text-white">Sign in to your account</h2>
@@ -133,7 +133,7 @@ export default function LoginPage() {
             </div>
 
             <div className="text-sm">
-              <Link href="#" className="font-medium text-duke-lightblue hover:text-duke-blue transition-colors">
+              <Link href="#" className="font-medium text-white hover:text-duke-blue transition-colors">
                 Forgot your password?
               </Link>
             </div>
@@ -143,10 +143,10 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-white bg-duke-blue hover:bg-duke-lightblue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-duke-blue transition-all duration-200 font-medium"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent rounded-lg text-black bg-white hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-duke-blue transition-all duration-200 font-medium"
             >
               {loading ? (
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>

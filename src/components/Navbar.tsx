@@ -19,21 +19,48 @@ export default function Navbar() {
     const checkAuth = async () => {
       setIsLoading(true);
       try {
-        const user = await getCurrentUser();
+        console.log("Navbar: Checking authentication");
+        const { data } = await supabase.auth.getSession();
+        const user = data.session?.user;
+        
+        console.log("Navbar: User authenticated?", !!user);
         setIsAuthenticated(!!user);
         
         if (user) {
-          // Get the user's profile to display their name
-          const profile = await getCurrentUserProfile();
-          if (profile) {
-            // Use display_name if available, otherwise use email or just first part of email
-            const displayName = profile.display_name || 
-                              (user.email ? user.email.split('@')[0] : 'User');
-            setUserName(displayName);
+          console.log("Navbar: Fetching user profile");
+          // Try to get the user's profile to display their name
+          try {
+            const profile = await getCurrentUserProfile();
+            console.log("Navbar: Profile loaded?", !!profile);
+            
+            if (profile && profile.display_name) {
+              // Use display_name if available
+              console.log("Navbar: Setting user name from profile display_name:", profile.display_name);
+              setUserName(profile.display_name);
+            } else if (profile && profile.email) {
+              // Use profile email as fallback
+              console.log("Navbar: Setting user name from profile email:", profile.email.split('@')[0]);
+              setUserName(profile.email.split('@')[0]);
+            } else if (user.email) {
+              // Fallback to auth user email if no profile or profile without name/email
+              console.log("Navbar: Setting user name from auth email:", user.email.split('@')[0]);
+              setUserName(user.email.split('@')[0]);
+            } else {
+              // Ultimate fallback
+              console.log("Navbar: No identifiable user info, using 'User'");
+              setUserName('User');
+            }
+          } catch (profileError) {
+            console.error("Error loading profile:", profileError instanceof Error ? profileError.message : JSON.stringify(profileError));
+            // Still set basic info from user if profile fails
+            if (user.email) {
+              console.log("Navbar: Setting user name from auth email after profile error:", user.email.split('@')[0]);
+              setUserName(user.email.split('@')[0]);
+            }
           }
         }
       } catch (error) {
-        console.error('Error checking auth status:', error);
+        console.error("Error checking auth:", error instanceof Error ? error.message : JSON.stringify(error));
         setIsAuthenticated(false);
       } finally {
         setIsLoading(false);
@@ -45,16 +72,29 @@ export default function Navbar() {
     // Set up auth state change listener
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        setIsAuthenticated(!!session?.user);
+        console.log("Navbar: Auth state changed:", event);
+        const isAuthed = !!session?.user;
+        setIsAuthenticated(isAuthed);
         
-        if (session?.user) {
+        if (isAuthed && session?.user) {
           // Update user name when auth state changes
-          const profile = await getCurrentUserProfile();
-          if (profile) {
-            const displayName = profile.display_name || 
+          try {
+            const profile = await getCurrentUserProfile();
+            if (profile) {
+              const displayName = profile.display_name || 
                               (session.user.email ? session.user.email.split('@')[0] : 'User');
-            setUserName(displayName);
+              setUserName(displayName);
+            } else if (session.user.email) {
+              setUserName(session.user.email.split('@')[0]);
+            }
+          } catch (error) {
+            console.error("Error updating profile after auth change:", error);
+            if (session.user.email) {
+              setUserName(session.user.email.split('@')[0]);
+            }
           }
+        } else {
+          setUserName('User');
         }
       }
     );
@@ -66,12 +106,49 @@ export default function Navbar() {
   
   const handleLogout = async () => {
     try {
-      await supabase.auth.signOut();
+      console.log("Navbar: Signing out");
+      
+      // Clear local state first in case sign-out API fails
       setIsAuthenticated(false);
+      setUserName('User');
+      
+      // Perform the sign out operation
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error("Sign out API error:", JSON.stringify(error));
+        throw error;
+      }
+      
+      console.log("Navbar: Sign out successful");
+      
+      // Try two approaches for navigation to ensure it works:
+      // 1. Use Next.js router first for a clean navigation
       router.push('/');
-      router.refresh();
+      
+      // 2. After a short delay, force a page refresh as a backup
+      // This helps ensure all auth state is fully cleared
+      setTimeout(() => {
+        console.log("Navbar: Forcing page refresh for complete sign-out");
+        window.location.href = '/';
+      }, 300);
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error('Error signing out:', error instanceof Error ? error.message : JSON.stringify(error));
+      
+      // Even if sign-out via API fails, we'll force a sign-out by clearing local storage
+      // and redirecting to home
+      console.log("Navbar: Attempting forced sign-out despite error");
+      
+      // Force clear supabase session from storage
+      try {
+        localStorage.removeItem('supabase.auth.token');
+        localStorage.removeItem('connectu-auth-token');
+      } catch (storageError) {
+        console.error('Failed to clear local storage:', storageError);
+      }
+      
+      // Force a hard refresh to start fresh
+      window.location.href = '/';
     }
   };
   

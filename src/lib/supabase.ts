@@ -96,18 +96,36 @@ export type Profile = {
 export async function getCurrentUser() {
   try {
     // First, try to get the current session
-    const { data: sessionData } = await supabase.auth.getSession();
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError) {
+      console.error('Error getting session:', JSON.stringify(sessionError));
+      return null;
+    }
     
     if (sessionData?.session) {
+      console.log('Session found for user:', sessionData.session.user.id);
       return sessionData.session.user;
     }
     
     // If no session, try refreshing
-    const { data: refreshData } = await supabase.auth.refreshSession();
+    console.log('No session found, attempting refresh');
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    
+    if (refreshError) {
+      console.error('Error refreshing session:', JSON.stringify(refreshError));
+    }
     
     // If refreshing didn't work, get the current user
     if (!refreshData.session) {
-      const { data: userData } = await supabase.auth.getUser();
+      console.log('No session after refresh, attempting getUser');
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error('Error getting user:', JSON.stringify(userError));
+        return null;
+      }
+      
       console.log('getCurrentUser (no session) result:', !!userData.user);
       return userData.user;
     }
@@ -115,7 +133,7 @@ export async function getCurrentUser() {
     console.log('getCurrentUser (with session) result:', !!refreshData.user);
     return refreshData.user;
   } catch (error) {
-    console.error('Error getting current user:', error);
+    console.error('Unexpected error getting current user:', error instanceof Error ? error.message : JSON.stringify(error));
     return null;
   }
 }
@@ -124,44 +142,128 @@ export async function getCurrentUser() {
  * Gets the current user's profile
  */
 export async function getCurrentUserProfile() {
-  const user = await getCurrentUser();
-  
-  if (!user) return null;
-  
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single();
-  
-  if (error) {
-    console.error('Error getting user profile:', error);
+  try {
+    const user = await getCurrentUser();
+    
+    if (!user) {
+      console.log('getCurrentUserProfile: No authenticated user');
+      return null;
+    }
+    
+    console.log('getCurrentUserProfile: Fetching profile for user', user.id);
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+    
+    if (error) {
+      console.error('Error getting user profile:', JSON.stringify(error));
+      
+      // If the error is that the profile doesn't exist, create one
+      if (error.code === 'PGRST116') {  // Record not found
+        console.log('Profile not found, creating one for', user.id);
+        
+        // First check if we have the required fields to create a profile
+        if (!user.id || !user.email) {
+          console.error('Cannot create profile - missing required user data:', { 
+            id: !!user.id, 
+            email: !!user.email 
+          });
+          return null;
+        }
+        
+        try {
+          // Create a new profile record
+          const newProfile = {
+            id: user.id,
+            email: user.email,
+            display_name: user.email ? user.email.split('@')[0] : 'User'
+          };
+          
+          console.log('Attempting to create profile with data:', { ...newProfile, id: '***' });
+          
+          const { data: newProfileData, error: insertError } = await supabase
+            .from('profiles')
+            .insert([newProfile])
+            .select()
+            .single();
+            
+          if (insertError) {
+            console.error('Failed to create profile - DB error:', JSON.stringify(insertError));
+            throw insertError;
+          }
+          
+          if (!newProfileData) {
+            console.error('Profile creation returned no data');
+            return null;
+          }
+          
+          console.log('New profile created successfully:', newProfileData.id);
+          return newProfileData as Profile;
+        } catch (createErr) {
+          console.error('Failed to create profile - exception:', createErr instanceof Error ? createErr.message : createErr);
+          return null;
+        }
+      } else {
+        // Some other database error occurred
+        console.error('Database error when getting profile:', error.code, error.message);
+        return null;
+      }
+    }
+    
+    console.log('Profile found:', data?.display_name || data?.email || 'No name');
+    return data as Profile;
+  } catch (error) {
+    console.error('Unexpected error in getCurrentUserProfile:', error instanceof Error ? error.message : JSON.stringify(error));
     return null;
   }
-  
-  return data as Profile;
 }
 
 /**
  * Creates or updates a user profile
  */
 export async function upsertUserProfile(profile: Partial<Profile>) {
-  const user = await getCurrentUser();
-  
-  if (!user) throw new Error('Not authenticated');
-  
-  const { data, error } = await supabase
-    .from('profiles')
-    .upsert({
+  try {
+    const user = await getCurrentUser();
+    
+    if (!user) {
+      console.error('Cannot upsert profile: Not authenticated');
+      throw new Error('Not authenticated');
+    }
+    
+    if (!user.id || !user.email) {
+      console.error('Cannot upsert profile: Missing user data', { id: !!user.id, email: !!user.email });
+      throw new Error('Missing required user data (id or email)');
+    }
+    
+    console.log('Upserting profile for user:', user.id);
+    
+    const profileData = {
       id: user.id,
-      email: user.email!,
+      email: user.email,
       ...profile,
-    })
-    .select()
-    .single();
-  
-  if (error) throw error;
-  return data as Profile;
+      updated_at: new Date().toISOString()
+    };
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .upsert(profileData)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error upserting profile:', JSON.stringify(error));
+      throw error;
+    }
+    
+    console.log('Profile upsert successful for user:', user.id);
+    return data as Profile;
+  } catch (error) {
+    console.error('Failed to upsert profile:', error instanceof Error ? error.message : JSON.stringify(error));
+    throw error;
+  }
 }
 
 // Form functions

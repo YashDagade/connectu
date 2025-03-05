@@ -129,9 +129,9 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
   // Render intro screen
   if (showIntro) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
         <div className="max-w-3xl w-full">
-          <div className="bg-white rounded-lg shadow-xl p-8 text-center border border-gray-200">
+          <div className="bg-white rounded-lg shadow-xl p-8 text-center border border-gray-300" style={{ boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.25)' }}>
             <h1 className="text-3xl font-bold text-gray-800 mb-4">{form.title}</h1>
             
             <div className="my-8">
@@ -154,6 +154,9 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
             <button
               onClick={startForm}
               className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-lg rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 shadow-lg font-medium"
+              style={{ backgroundColor: '#012169' }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#001A57'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#012169'}
             >
               Start Form
             </button>
@@ -166,9 +169,9 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
   // Render outro (submission) screen
   if (showOutro) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
         <div className="max-w-3xl w-full">
-          <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-200">
+          <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-300" style={{ boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.25)' }}>
             <h1 className="text-3xl font-bold text-gray-800 mb-4 text-center">Almost Done!</h1>
             
             <div className="my-8">
@@ -186,7 +189,7 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
                     id="name"
                     value={respondentName}
                     onChange={(e) => setRespondentName(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-duke-blue focus:border-duke-blue transition-colors"
                     placeholder="Enter your full name"
                     required
                   />
@@ -201,7 +204,7 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
                     id="email"
                     value={respondentEmail}
                     onChange={(e) => setRespondentEmail(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-duke-blue focus:border-duke-blue transition-colors"
                     placeholder="Enter your email address"
                     required
                   />
@@ -214,6 +217,9 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
                 onClick={handleSubmit}
                 disabled={isSubmitting}
                 className="px-8 py-4 bg-blue-600 text-white text-lg rounded-md hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-lg font-medium"
+                style={{ backgroundColor: isSubmitting ? '#9CA3AF' : '#012169' }}
+                onMouseOver={(e) => !isSubmitting && (e.currentTarget.style.backgroundColor = '#001A57')}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = isSubmitting ? '#9CA3AF' : '#012169'}
               >
                 {isSubmitting ? 'Submitting...' : 'Submit Responses'}
               </button>
@@ -226,27 +232,33 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
 
   // Render question screen
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
       <div className="max-w-3xl w-full">
-        <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-200">
+        <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-300" style={{ boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.25)' }}>
           <div className="flex justify-between items-center mb-8">
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600 font-medium">
+              <span className="text-sm bg-white px-2 py-1 rounded text-gray-800 font-medium">
                 Question {currentQuestionIndex + 1} of {questions.length}
               </span>
-              <div className="w-48 h-3 bg-gray-200 rounded-full overflow-hidden">
+              <div className="w-48 h-4 bg-gray-300 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-blue-600 rounded-full"
-                  style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
+                  className="h-full rounded-full"
+                  style={{ 
+                    width: `${((currentQuestionIndex + 1) / questions.length) * 100}%`,
+                    backgroundColor: '#012169'
+                  }}
                 ></div>
               </div>
             </div>
             
             {hasTimeLimit && (
-              <Timer
-                seconds={currentQuestion.time_limit || 60}
-                onTimeUp={handleTimeUp}
-              />
+              <div className="bg-white p-2 rounded-full shadow-md border border-gray-200">
+                <Timer
+                  key={currentQuestion.id}
+                  seconds={currentQuestion.time_limit || 60}
+                  onTimeUp={handleTimeUp}
+                />
+              </div>
             )}
           </div>
           
@@ -257,8 +269,9 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
               ref={answerInputRef}
               value={currentAnswer}
               onChange={(e) => setCurrentAnswer(e.target.value)}
-              className="w-full p-4 min-h-[150px] border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              className="w-full p-4 min-h-[150px] border border-gray-300 rounded-md text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-duke-blue focus:border-duke-blue transition-colors placeholder-gray-500"
               placeholder="Type your answer here..."
+              style={{ color: '#000000' }}
             />
           </div>
           
@@ -266,6 +279,9 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
             <button
               onClick={handleNextQuestion}
               className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-md font-medium"
+              style={{ backgroundColor: '#012169' }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#001A57'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#012169'}
             >
               {isLastQuestion ? 'Finish' : 'Next Question'}
             </button>

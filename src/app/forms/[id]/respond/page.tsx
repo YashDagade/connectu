@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import React from 'react';
 
 // Mock form data for demonstration
 const mockForm = {
@@ -18,7 +19,8 @@ const mockForm = {
 };
 
 export default function RespondToForm({ params }: { params: { id: string } }) {
-  const formId = params.id;
+  const unwrappedParams = React.use(params);
+  const formId = unwrappedParams.id;
   const router = useRouter();
   const [form] = useState(mockForm); // In a real app, we'd fetch the form by ID
   const [responses, setResponses] = useState<Record<string, string>>({});

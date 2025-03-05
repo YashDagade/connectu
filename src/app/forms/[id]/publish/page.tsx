@@ -4,11 +4,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getFormById, publishForm } from '@/lib/supabase';
 import Link from 'next/link';
+import React from 'react';
 
 export default function PublishFormPage({ params }: { params: { id: string } }) {
-  // Access id directly from params for now
-  // @ts-ignore - Suppressing TypeScript warning for now
-  const formId = params.id;
+  // Unwrap params before accessing id property
+  const unwrappedParams = React.use(params);
+  const formId = unwrappedParams.id;
   const router = useRouter();
   const [form, setForm] = useState<any>(null);
   const [questions, setQuestions] = useState<any[]>([]);

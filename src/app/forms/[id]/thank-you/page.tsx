@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getFormById } from '@/lib/supabase';
 import { Form } from '@/lib/supabase';
+import React from 'react';
 
 export default function ThankYouPage({ params }: { params: { id: string } }) {
-  // Access id directly from params for now
-  // @ts-ignore - Suppressing TypeScript warning for now 
-  const formId = params.id;
+  // Unwrap params before accessing id property
+  const unwrappedParams = React.use(params);
+  const formId = unwrappedParams.id;
   const [form, setForm] = useState<Form | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 

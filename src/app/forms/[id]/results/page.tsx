@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { getFormById, getFormResponses } from '@/lib/supabase';
+import React from 'react';
 
 export default function FormResultsPage({ params }: { params: { id: string } }) {
-  // Access id directly from params
-  // @ts-ignore - Suppressing TypeScript warning for now
-  const formId = params.id;
+  // Unwrap params before accessing id property
+  const unwrappedParams = React.use(params);
+  const formId = unwrappedParams.id;
   const [form, setForm] = useState<any>(null);
   const [questions, setQuestions] = useState<any[]>([]);
   const [responses, setResponses] = useState<any[]>([]);

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import React from 'react';
 import {
   getFormById,
   getFormResponses,
@@ -14,7 +15,8 @@ import {
 export default function FormConnectionsPage() {
   const params = useParams();
   const router = useRouter();
-  const formId = params.id as string;
+  const unwrappedParams = React.use(params);
+  const formId = unwrappedParams.id as string;
   
   const [form, setForm] = useState<any>(null);
   const [loading, setLoading] = useState(true);

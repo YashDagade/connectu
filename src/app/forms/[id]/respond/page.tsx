@@ -1,32 +1,43 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import React from 'react';
+import { useParams } from 'next/navigation';
+import { getFormById, createResponse, submitAnswers } from '@/lib/supabase';
 
-// Mock form data for demonstration
-const mockForm = {
-  id: '1',
-  title: 'Meaningful Connections',
-  description: 'Answer these questions to help us match you with compatible connections.',
-  createdBy: 'John Doe',
-  questions: [
-    { id: '1', text: 'What do you think are the defining problems of our generation?' },
-    { id: '2', text: 'What are some non-traditional things you did growing up?' },
-    { id: '3', text: 'Where are you an outlier?' },
-    { id: '4', text: 'What do you do purely for the joy it brings?' }
-  ]
-};
-
-export default function RespondToForm({ params }: { params: { id: string } }) {
-  const unwrappedParams = React.use(params);
-  const formId = unwrappedParams.id;
+// Remove mock data and implement real fetching
+export default function RespondToForm() {
+  const params = useParams();
+  const formId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : '';
   const router = useRouter();
-  const [form] = useState(mockForm); // In a real app, we'd fetch the form by ID
+  
+  const [form, setForm] = useState<any>(null);
+  const [questions, setQuestions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  useEffect(() => {
+    if (formId) {
+      fetchFormData();
+    }
+  }, [formId]);
+  
+  const fetchFormData = async () => {
+    try {
+      const { form, questions } = await getFormById(formId);
+      setForm(form);
+      setQuestions(questions);
+    } catch (err) {
+      console.error('Error fetching form:', err);
+      setError('Could not load the form. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
   
   const handleResponseChange = (questionId: string, value: string) => {
     setResponses({
@@ -36,10 +47,10 @@ export default function RespondToForm({ params }: { params: { id: string } }) {
   };
   
   const isFormComplete = () => {
-    if (!name || !email) return false;
+    if (!name || !email || !form || !questions) return false;
     
     // Check if all questions have responses
-    for (const question of form.questions) {
+    for (const question of questions) {
       if (!responses[question.id] || responses[question.id].trim() === '') {
         return false;
       }
@@ -54,32 +65,87 @@ export default function RespondToForm({ params }: { params: { id: string } }) {
     if (!isFormComplete()) return;
     
     setIsSubmitting(true);
+    setError(null);
+    
+    // Format the answers for submission
+    const formattedAnswers = questions.map(question => ({
+      question_id: question.id,
+      text: responses[question.id],
+      time_spent: 0 // We don't track time in this form, but the API requires it
+    }));
     
     try {
-      // In a real app, we would:
-      // 1. Submit the responses to the backend
-      // 2. Convert responses to embeddings using OpenAI
-      // 3. Store the embeddings in Qdrant for matching
+      // Use server API route for all submissions for better reliability
+      const response = await fetch('/api/forms/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          formId: formId,
+          name: name,
+          email: email,
+          answers: formattedAnswers
+        }),
+      });
       
-      // For now, we'll just simulate a delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Always parse the response for error messages
+      const result = await response.json();
       
-      // Navigate to a thank you page
+      if (!response.ok) {
+        throw new Error(result.error || `Server responded with status ${response.status}`);
+      }
+      
+      console.log('Form submission successful:', result);
+      
+      // Navigate to thank you page
       router.push(`/forms/${formId}/thank-you`);
     } catch (error) {
       console.error('Error submitting form:', error);
-      // Handle error state
+      
+      if (error instanceof Error) {
+        setError(error.message);
+      } else {
+        setError('An unknown error occurred. Please try again later.');
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
+  
+  if (loading) {
+    return (
+      <div className="container mx-auto py-12 px-4 flex justify-center items-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="container mx-auto py-12 px-4 max-w-3xl">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!form) {
+    return (
+      <div className="container mx-auto py-12 px-4 max-w-3xl">
+        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
+          <p>Form not found or no longer available.</p>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="container mx-auto py-12 px-4 max-w-3xl">
       <div className="bg-white shadow-md rounded-lg p-6 mb-8">
         <h1 className="text-2xl font-bold mb-2">{form.title}</h1>
         <p className="text-gray-600 mb-4">{form.description}</p>
-        <div className="text-sm text-gray-500">Created by {form.createdBy}</div>
       </div>
       
       <form onSubmit={handleSubmit} className="bg-white shadow-md rounded-lg p-6">
@@ -121,7 +187,7 @@ export default function RespondToForm({ params }: { params: { id: string } }) {
         <div className="mb-8">
           <h2 className="text-lg font-medium mb-4">Questions</h2>
           <div className="space-y-6">
-            {form.questions.map((question, index) => (
+            {questions.map((question, index) => (
               <div key={question.id} className="p-4 bg-gray-50 rounded-md">
                 <label className="block text-md font-medium mb-2">
                   {index + 1}. {question.text}
@@ -139,13 +205,38 @@ export default function RespondToForm({ params }: { params: { id: string } }) {
           </div>
         </div>
         
+        {error && (
+          <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-md">
+            <div className="font-medium">Submission Error</div>
+            <p>{error}</p>
+            {error.includes('logged in') && (
+              <div className="mt-3">
+                <a 
+                  href="/auth/login" 
+                  className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Sign In
+                </a>
+              </div>
+            )}
+          </div>
+        )}
+        
         <div className="flex justify-end">
           <button
             type="submit"
             disabled={!isFormComplete() || isSubmitting}
             className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-400"
           >
-            {isSubmitting ? 'Submitting...' : 'Submit Responses'}
+            {isSubmitting ? (
+              <span className="flex items-center">
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Submitting...
+              </span>
+            ) : 'Submit Responses'}
           </button>
         </div>
       </form>

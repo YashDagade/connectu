@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "apply-schema": "node scripts/apply-schema.js"
+    "apply-schema": "node scripts/apply-schema.js",
+    "update-rls": "node scripts/update-rls.js"
   },
   "dependencies": {
     "@qdrant/js-client-rest": "^1.13.0",

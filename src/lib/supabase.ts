@@ -13,13 +13,47 @@ if (!supabaseUrl || !supabaseAnonKey) {
   });
 }
 
-// Initialize the Supabase client
+// Initialize the Supabase client with improved browser support
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     storageKey: 'connectu-auth-token',
     autoRefreshToken: true,
     detectSessionInUrl: true,
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'ConnectU Web App',
+    },
+    // Add debug log filtering to help identify actual errors
+    fetch: (...args) => {
+      // @ts-ignore - we know these are valid fetch args
+      return fetch(...args).then(async (response) => {
+        // Clone response to avoid consuming it
+        const clonedResponse = response.clone();
+        
+        // Only log errors
+        if (!response.ok) {
+          try {
+            const errorData = await clonedResponse.json();
+            console.error('Supabase fetch error:', {
+              status: response.status,
+              statusText: response.statusText,
+              url: response.url,
+              errorData
+            });
+          } catch (jsonError) {
+            console.error('Supabase fetch error (not JSON):', {
+              status: response.status,
+              statusText: response.statusText,
+              url: response.url
+            });
+          }
+        }
+        
+        return response;
+      });
+    }
   }
 });
 
@@ -349,39 +383,98 @@ export async function getFormById(formId: string) {
  * Creates a new response
  */
 export async function createResponse(formId: string, userId: string | null, name: string, email: string) {
-  const { data, error } = await supabase
-    .from('responses')
-    .insert({
-      form_id: formId,
-      user_id: userId,
-      respondent_name: name,
-      respondent_email: email
-    })
-    .select()
-    .single();
-  
-  if (error) throw error;
-  return data;
+  try {
+    console.log('Creating response with:', { formId, userId, name, email: email.substring(0, 3) + '...' });
+    
+    // Check if the form exists and is accepting responses
+    const { data: formData, error: formError } = await supabase
+      .from('forms')
+      .select('is_accepting_responses')
+      .eq('id', formId)
+      .single();
+    
+    if (formError) {
+      console.error('Error checking form status:', formError);
+      throw new Error(`Failed to verify form status: ${formError.message}`);
+    }
+    
+    if (formData && !formData.is_accepting_responses) {
+      throw new Error('This form is no longer accepting responses');
+    }
+    
+    // Create the response
+    const { data, error } = await supabase
+      .from('responses')
+      .insert({
+        form_id: formId,
+        user_id: userId,
+        respondent_name: name,
+        respondent_email: email
+      })
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error creating response:', error);
+      // Check if it's an auth issue
+      if (error.code === 'PGRST301' || error.message?.includes('permission denied')) {
+        throw new Error('Anonymous submissions are not allowed. Please log in to submit this form.');
+      }
+      throw error;
+    }
+    
+    if (!data) {
+      throw new Error('Response was created but no data was returned');
+    }
+    
+    console.log('Response created successfully:', data.id);
+    return data;
+  } catch (error) {
+    console.error('Error in createResponse:', error);
+    throw error;
+  }
 }
 
 /**
  * Submits answers for a response
  */
 export async function submitAnswers(responseId: string, answers: Array<{ question_id: string, text: string, time_spent: number }>) {
-  const { data, error } = await supabase
-    .from('answers')
-    .insert(
-      answers.map(a => ({
-        response_id: responseId,
-        question_id: a.question_id,
-        text: a.text,
-        time_spent: a.time_spent
-      }))
-    )
-    .select();
-  
-  if (error) throw error;
-  return data;
+  try {
+    console.log(`Submitting ${answers.length} answers for response ${responseId}`);
+    
+    if (!answers.length) {
+      throw new Error('No answers provided for submission');
+    }
+    
+    // Create formatted answers array for insertion
+    const formattedAnswers = answers.map(a => ({
+      response_id: responseId,
+      question_id: a.question_id,
+      text: a.text,
+      time_spent: a.time_spent
+    }));
+    
+    // Submit all answers
+    const { data, error } = await supabase
+      .from('answers')
+      .insert(formattedAnswers)
+      .select();
+    
+    if (error) {
+      console.error('Error submitting answers:', error);
+      // Check if it's an auth issue
+      if (error.code === 'PGRST301' || error.message?.includes('permission denied')) {
+        throw new Error('You do not have permission to submit answers. This may require authentication.');
+      }
+      throw error;
+    }
+    
+    console.log(`Successfully submitted ${data ? data.length : 0} answers`);
+    return data;
+  } catch (error) {
+    console.error('Error in submitAnswers:', error);
+    throw error;
+  }
 }
 
 /**

@@ -15,8 +15,7 @@ import {
 export default function FormConnectionsPage() {
   const params = useParams();
   const router = useRouter();
-  const unwrappedParams = React.use(params);
-  const formId = unwrappedParams.id as string;
+  const formId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : '';
   
   const [form, setForm] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -26,7 +25,9 @@ export default function FormConnectionsPage() {
   const [responses, setResponses] = useState<any[]>([]);
   
   useEffect(() => {
-    loadFormData();
+    if (formId) {
+      loadFormData();
+    }
   }, [formId]);
   
   async function loadFormData() {

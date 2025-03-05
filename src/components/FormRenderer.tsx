@@ -28,6 +28,7 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
   const [showOutro, setShowOutro] = useState(false);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [timeSpent, setTimeSpent] = useState(0);
+  const [error, setError] = useState<string | null>(null);
   const answerInputRef = useRef<HTMLTextAreaElement>(null);
 
   const currentQuestion = questions[currentQuestionIndex];
@@ -96,45 +97,71 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
   };
 
   const handleSubmit = async () => {
+    // Clear any previous errors
+    setError(null);
+    
     // Email validation regex
     const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
     
     if (!respondentName.trim()) {
-      alert('Please provide your name');
+      setError('Please provide your name');
       return;
     }
     
     if (!respondentEmail.trim()) {
-      alert('Please provide your email address');
+      setError('Please provide your email address');
       return;
     }
     
     if (!emailRegex.test(respondentEmail.trim())) {
-      alert('Please provide a valid email address');
+      setError('Please provide a valid email address');
       return;
     }
     
     setIsSubmitting(true);
     
+    // Format the answers for submission
+    const formattedAnswers = answers.map(answer => ({
+      question_id: answer.questionId,
+      text: answer.text,
+      time_spent: answer.timeSpent
+    }));
+    
     try {
-      // Create a response record
-      const response = await createResponse(form.id, null, respondentName, respondentEmail);
+      // Use the server API route for all submissions
+      const response = await fetch('/api/forms/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          formId: form.id,
+          name: respondentName,
+          email: respondentEmail,
+          answers: formattedAnswers
+        }),
+      });
       
-      // Submit all answers
-      await submitAnswers(
-        response.id,
-        answers.map(answer => ({
-          question_id: answer.questionId,
-          text: answer.text,
-          time_spent: answer.timeSpent
-        }))
-      );
+      // Parse the response even if it's an error
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || `Server responded with status ${response.status}`);
+      }
+      
+      console.log('Form submission successful:', result);
       
       // Redirect to thank you page
       router.push(`/forms/${form.id}/thank-you`);
     } catch (error) {
       console.error('Error submitting form:', error);
-      alert('Failed to submit your responses. Please try again.');
+      
+      if (error instanceof Error) {
+        setError(`${error.message}`);
+      } else {
+        setError('An unknown error occurred. Please try again later or contact support.');
+      }
+      
       setIsSubmitting(false);
     }
   };
@@ -193,12 +220,19 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900 p-4">
         <div className="max-w-3xl w-full">
-          <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-300" style={{ boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.25)' }}>
-            <h1 className="text-3xl font-bold text-gray-800 mb-4 text-center">Almost Done!</h1>
+          <div className="bg-white rounded-lg shadow-xl p-8 text-center border border-gray-300" style={{ boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.25)' }}>
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Submit Your Responses</h2>
             
-            <div className="my-8">
-              <p className="text-lg text-gray-700 mb-6 text-center">
-                Thanks for completing the questions. Please provide your contact information to submit your responses.
+            {error && (
+              <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-md">
+                <div className="font-medium">Submission Error</div>
+                <p>{error}</p>
+              </div>
+            )}
+            
+            <div className="mb-6">
+              <p className="text-gray-700 mb-4">
+                Thank you for completing the questions! Please provide your information below to submit your responses.
               </p>
               
               <div className="space-y-4 max-w-md mx-auto">

@@ -1,23 +1,78 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import { getCurrentUser, getCurrentUserProfile } from '@/lib/supabase';
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [userName, setUserName] = useState('User');
   const pathname = usePathname();
+  const router = useRouter();
   
-  // Mock authentication state
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    pathname.includes('/dashboard') || pathname.includes('/forms')
-  );
+  // Check actual authentication status
+  useEffect(() => {
+    const checkAuth = async () => {
+      setIsLoading(true);
+      try {
+        const user = await getCurrentUser();
+        setIsAuthenticated(!!user);
+        
+        if (user) {
+          // Get the user's profile to display their name
+          const profile = await getCurrentUserProfile();
+          if (profile) {
+            // Use display_name if available, otherwise use email or just first part of email
+            const displayName = profile.display_name || 
+                              (user.email ? user.email.split('@')[0] : 'User');
+            setUserName(displayName);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking auth status:', error);
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkAuth();
+    
+    // Set up auth state change listener
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setIsAuthenticated(!!session?.user);
+        
+        if (session?.user) {
+          // Update user name when auth state changes
+          const profile = await getCurrentUserProfile();
+          if (profile) {
+            const displayName = profile.display_name || 
+                              (session.user.email ? session.user.email.split('@')[0] : 'User');
+            setUserName(displayName);
+          }
+        }
+      }
+    );
+    
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
   
-  const handleLogout = () => {
-    // In a real app, this would use Supabase to sign out
-    // await supabase.auth.signOut();
-    setIsAuthenticated(false);
-    window.location.href = '/';
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setIsAuthenticated(false);
+      router.push('/');
+      router.refresh();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
   
   return (
@@ -71,23 +126,12 @@ export default function Navbar() {
                   </Link>
                 </>
               )}
-              
-              <Link
-                href="/about"
-                className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                  pathname === '/about' 
-                    ? 'border-duke-blue text-white' 
-                    : 'border-transparent text-gray-300 hover:border-gray-600 hover:text-white'
-                }`}
-              >
-                About
-              </Link>
             </div>
           </div>
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-300">Welcome, User</span>
+                <span className="text-sm text-gray-300">{userName}</span>
                 <button
                   onClick={handleLogout}
                   className="inline-flex items-center px-3 py-1.5 border border-gray-700 text-sm font-medium rounded-md text-white bg-gray-800 hover:bg-gray-700 transition-colors"
@@ -124,7 +168,7 @@ export default function Navbar() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               ) : (
-                <svg className="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <svg className="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               )}
@@ -171,21 +215,11 @@ export default function Navbar() {
                 </Link>
               </>
             )}
-            
-            <Link
-              href="/about"
-              className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                pathname === '/about' 
-                  ? 'bg-gray-800 border-duke-blue text-white' 
-                  : 'border-transparent text-gray-300 hover:bg-gray-800 hover:border-gray-600 hover:text-white'
-              }`}
-            >
-              About
-            </Link>
           </div>
           <div className="pt-4 pb-3 border-t border-gray-800">
             {isAuthenticated ? (
               <div className="space-y-1">
+                <div className="px-4 py-2 text-base font-medium text-gray-300">Welcome, {userName}</div>
                 <button
                   onClick={handleLogout}
                   className="block w-full text-left pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-300 hover:bg-gray-800 hover:border-gray-600 hover:text-white"

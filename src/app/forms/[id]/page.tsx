@@ -1,18 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import FormRenderer from '@/components/FormRenderer';
-import { getFormById } from '@/lib/supabase';
+import { getFormById, getCurrentUser } from '@/lib/supabase';
 import Link from 'next/link';
 
 export default function FormPage({ params }: { params: { id: string } }) {
-  // Access id directly from params for now
-  // @ts-ignore - Suppressing TypeScript warning for now
-  const formId = params.id;
+  // Properly unwrap params with React.use()
+  const unwrappedParams = use(params);
+  const formId = unwrappedParams.id;
   const [form, setForm] = useState<any>(null);
   const [questions, setQuestions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
     async function loadForm() {
@@ -20,6 +21,12 @@ export default function FormPage({ params }: { params: { id: string } }) {
         const { form, questions } = await getFormById(formId);
         setForm(form);
         setQuestions(questions);
+        
+        // Check if current user is the form owner
+        const currentUser = await getCurrentUser();
+        if (currentUser && form.user_id === currentUser.id) {
+          setIsOwner(true);
+        }
       } catch (error) {
         console.error('Error loading form:', error);
         setError('Could not load the form. It might not exist or has been deleted.');
@@ -76,5 +83,30 @@ export default function FormPage({ params }: { params: { id: string } }) {
     );
   }
 
-  return <FormRenderer form={form} questions={questions} />;
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {isOwner && (
+        <div className="bg-gray-100 p-4 border-b border-gray-200">
+          <div className="max-w-7xl mx-auto flex justify-between items-center">
+            <h2 className="text-lg font-medium text-gray-800">Form Owner Controls</h2>
+            <div className="flex gap-4">
+              <Link 
+                href={`/forms/${formId}/connections`}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Manage Connections
+              </Link>
+              <Link 
+                href={`/forms/${formId}/results`}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+              >
+                View Results
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+      <FormRenderer form={form} questions={questions} />
+    </div>
+  );
 } 

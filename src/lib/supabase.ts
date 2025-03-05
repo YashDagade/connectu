@@ -1,10 +1,32 @@
 import { createClient } from '@supabase/supabase-js';
+import { generatePersonSummary } from './openai';
+import { storeResponseEmbedding, generateFormConnections } from './qdrant';
+
+// Log Supabase initialization for debugging
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase environment variables!', {
+    url: supabaseUrl ? 'Set' : 'Missing',
+    key: supabaseAnonKey ? 'Set' : 'Missing'
+  });
+}
 
 // Initialize the Supabase client
-export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    storageKey: 'connectu-auth-token',
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  }
+});
+
+// Verify the client is working
+supabase.auth.onAuthStateChange((event, session) => {
+  console.log('Supabase auth state changed:', event, session?.user?.id || 'No active session');
+});
 
 // Database schema types
 export type Question = {
@@ -23,6 +45,8 @@ export type Form = {
   description: string;
   created_at: string;
   is_published: boolean;
+  is_accepting_responses: boolean;
+  connections_generated: boolean;
   updated_at: string;
 };
 
@@ -32,6 +56,8 @@ export type Response = {
   user_id: string | null; // Can be null for anonymous responses
   respondent_name: string;
   respondent_email: string;
+  summary: string | null; // Generated summary of the person
+  embedding_id: string | null; // Reference to the embedding in Qdrant
   created_at: string;
 };
 
@@ -44,7 +70,101 @@ export type Answer = {
   created_at: string;
 };
 
-// Database functions
+export type Connection = {
+  id: string;
+  form_id: string;
+  response1_id: string;
+  response2_id: string;
+  similarity_score: number;
+  created_at: string;
+};
+
+export type Profile = {
+  id: string;
+  email: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+// Auth functions
+
+/**
+ * Gets the current authenticated user
+ */
+export async function getCurrentUser() {
+  try {
+    // First, try to get the current session
+    const { data: sessionData } = await supabase.auth.getSession();
+    
+    if (sessionData?.session) {
+      return sessionData.session.user;
+    }
+    
+    // If no session, try refreshing
+    const { data: refreshData } = await supabase.auth.refreshSession();
+    
+    // If refreshing didn't work, get the current user
+    if (!refreshData.session) {
+      const { data: userData } = await supabase.auth.getUser();
+      console.log('getCurrentUser (no session) result:', !!userData.user);
+      return userData.user;
+    }
+    
+    console.log('getCurrentUser (with session) result:', !!refreshData.user);
+    return refreshData.user;
+  } catch (error) {
+    console.error('Error getting current user:', error);
+    return null;
+  }
+}
+
+/**
+ * Gets the current user's profile
+ */
+export async function getCurrentUserProfile() {
+  const user = await getCurrentUser();
+  
+  if (!user) return null;
+  
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single();
+  
+  if (error) {
+    console.error('Error getting user profile:', error);
+    return null;
+  }
+  
+  return data as Profile;
+}
+
+/**
+ * Creates or updates a user profile
+ */
+export async function upsertUserProfile(profile: Partial<Profile>) {
+  const user = await getCurrentUser();
+  
+  if (!user) throw new Error('Not authenticated');
+  
+  const { data, error } = await supabase
+    .from('profiles')
+    .upsert({
+      id: user.id,
+      email: user.email!,
+      ...profile,
+    })
+    .select()
+    .single();
+  
+  if (error) throw error;
+  return data as Profile;
+}
+
+// Form functions
 
 /**
  * Creates a new form
@@ -56,7 +176,9 @@ export async function createForm(userId: string, title: string, description: str
       user_id: userId,
       title,
       description,
-      is_published: false
+      is_published: false,
+      is_accepting_responses: true,
+      connections_generated: false
     })
     .select()
     .single();
@@ -92,6 +214,24 @@ export async function publishForm(formId: string) {
   const { data, error } = await supabase
     .from('forms')
     .update({ is_published: true, updated_at: new Date().toISOString() })
+    .eq('id', formId)
+    .select()
+    .single();
+  
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Updates a form's response acceptance status
+ */
+export async function stopAcceptingResponses(formId: string) {
+  const { data, error } = await supabase
+    .from('forms')
+    .update({ 
+      is_accepting_responses: false, 
+      updated_at: new Date().toISOString() 
+    })
     .eq('id', formId)
     .select()
     .single();
@@ -193,7 +333,7 @@ export async function getUserForms(userId?: string) {
   let currentUserId = userId;
   
   if (!currentUserId) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     currentUserId = user?.id;
     
     // If still no user, return empty array (for development/testing)
@@ -254,7 +394,15 @@ export async function deleteForm(formId: string) {
     if (responsesError) throw responsesError;
   }
   
-  // Delete questions
+  // Delete connections for this form
+  const { error: connectionsError } = await supabase
+    .from('connections')
+    .delete()
+    .eq('form_id', formId);
+  
+  if (connectionsError) throw connectionsError;
+  
+  // Delete questions for this form
   const { error: questionsError } = await supabase
     .from('questions')
     .delete()
@@ -262,7 +410,7 @@ export async function deleteForm(formId: string) {
   
   if (questionsError) throw questionsError;
   
-  // Finally delete the form
+  // Finally, delete the form itself
   const { error: formError } = await supabase
     .from('forms')
     .delete()
@@ -274,14 +422,14 @@ export async function deleteForm(formId: string) {
 }
 
 /**
- * Updates form details
+ * Updates a form's details
  */
 export async function updateForm(formId: string, updates: { title?: string; description?: string }) {
   const { data, error } = await supabase
     .from('forms')
-    .update({ 
+    .update({
       ...updates,
-      updated_at: new Date().toISOString() 
+      updated_at: new Date().toISOString()
     })
     .eq('id', formId)
     .select()
@@ -292,7 +440,7 @@ export async function updateForm(formId: string, updates: { title?: string; desc
 }
 
 /**
- * Updates a question
+ * Updates a question's details
  */
 export async function updateQuestion(questionId: string, updates: { text?: string; time_limit?: number | null; order?: number }) {
   const { data, error } = await supabase
@@ -317,4 +465,186 @@ export async function deleteQuestion(questionId: string) {
   
   if (error) throw error;
   return true;
+}
+
+/**
+ * Processes form responses to generate summaries and embeddings
+ */
+export async function processFormResponses(formId: string) {
+  try {
+    // Get the form details
+    const { form, questions } = await getFormById(formId);
+    
+    // Get all responses for this form that don't have summaries yet
+    const { data: responses, error: responsesError } = await supabase
+      .from('responses')
+      .select('*')
+      .eq('form_id', formId)
+      .is('summary', null);
+    
+    if (responsesError) throw responsesError;
+    
+    if (!responses.length) {
+      console.log('No responses to process for form', formId);
+      return [];
+    }
+    
+    // Get all answers for these responses
+    const responseIds = responses.map(r => r.id);
+    const { data: allAnswers, error: answersError } = await supabase
+      .from('answers')
+      .select('*')
+      .in('response_id', responseIds);
+    
+    if (answersError) throw answersError;
+    
+    // Process each response
+    const processedResponses = await Promise.all(
+      responses.map(async (response) => {
+        // Get this response's answers
+        const responseAnswers = allAnswers.filter(a => a.response_id === response.id);
+        
+        // Create a map of question ID to answer text
+        const answerMap: Record<string, string> = {};
+        responseAnswers.forEach(answer => {
+          answerMap[answer.question_id] = answer.text;
+        });
+        
+        // Generate summary using OpenAI
+        const summary = await generatePersonSummary(
+          form.title,
+          form.description || '',
+          questions.map(q => ({ id: q.id, text: q.text })),
+          answerMap,
+          response.respondent_name
+        );
+        
+        // Store the embedding in Qdrant
+        const embeddingId = await storeResponseEmbedding(
+          {
+            formId: form.id,
+            responseId: response.id,
+            respondentName: response.respondent_name,
+            respondentEmail: response.respondent_email,
+            summary
+          },
+          summary
+        );
+        
+        // Update the response in Supabase with the summary and embedding ID
+        const { data: updatedResponse, error: updateError } = await supabase
+          .from('responses')
+          .update({
+            summary,
+            embedding_id: embeddingId
+          })
+          .eq('id', response.id)
+          .select()
+          .single();
+        
+        if (updateError) throw updateError;
+        
+        return updatedResponse;
+      })
+    );
+    
+    return processedResponses;
+  } catch (error) {
+    console.error('Error processing form responses:', error);
+    throw error;
+  }
+}
+
+/**
+ * Generates and stores connections between form responses
+ */
+export async function generateAndStoreConnections(formId: string) {
+  try {
+    // Generate connections using Qdrant
+    const connections = await generateFormConnections(formId);
+    
+    if (!connections.length) {
+      console.log('No connections generated for form', formId);
+      return [];
+    }
+    
+    // Store connections in Supabase
+    const { data: storedConnections, error } = await supabase
+      .from('connections')
+      .insert(
+        connections.map(conn => ({
+          form_id: formId,
+          response1_id: conn.response1Id,
+          response2_id: conn.response2Id,
+          similarity_score: conn.similarityScore
+        }))
+      )
+      .select();
+    
+    if (error) throw error;
+    
+    // Update the form to mark connections as generated
+    await supabase
+      .from('forms')
+      .update({
+        connections_generated: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', formId);
+    
+    return storedConnections;
+  } catch (error) {
+    console.error('Error generating and storing connections:', error);
+    throw error;
+  }
+}
+
+/**
+ * Gets all connections for a form
+ */
+export async function getFormConnections(formId: string) {
+  try {
+    // Get all connections for this form
+    const { data: connections, error: connectionsError } = await supabase
+      .from('connections')
+      .select('*')
+      .eq('form_id', formId)
+      .order('similarity_score', { ascending: false });
+    
+    if (connectionsError) throw connectionsError;
+    
+    if (!connections.length) {
+      return [];
+    }
+    
+    // Get response details for all responses in these connections
+    const responseIds = new Set<string>();
+    connections.forEach(conn => {
+      responseIds.add(conn.response1_id);
+      responseIds.add(conn.response2_id);
+    });
+    
+    const { data: responses, error: responsesError } = await supabase
+      .from('responses')
+      .select('id, respondent_name, respondent_email, summary')
+      .in('id', Array.from(responseIds));
+    
+    if (responsesError) throw responsesError;
+    
+    // Create a map of response ID to response data
+    const responseMap = new Map();
+    responses.forEach(resp => {
+      responseMap.set(resp.id, resp);
+    });
+    
+    // Enrich the connections with response data
+    return connections.map(conn => ({
+      ...conn,
+      response1: responseMap.get(conn.response1_id),
+      response2: responseMap.get(conn.response2_id)
+    }));
+  } catch (error) {
+    console.error('Error getting form connections:', error);
+    throw error;
+  }
 } 

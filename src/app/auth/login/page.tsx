@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -18,11 +19,7 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      // In a real implementation, you would make an actual API call here
-      // This is a simulation for demonstration purposes
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      // Simulated validation
+      // Basic validation
       if (!email || !email.includes('@')) {
         throw new Error('Please enter a valid email address');
       }
@@ -31,9 +28,25 @@ export default function LoginPage() {
         throw new Error('Password must be at least 6 characters');
       }
 
-      // If login is successful
+      // Actual Supabase authentication
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        throw new Error(signInError.message || 'Invalid login credentials');
+      }
+
+      if (!data.user) {
+        throw new Error('No user returned from authentication');
+      }
+
+      // If login is successful, redirect to dashboard
       router.push('/dashboard');
+      router.refresh(); // Force a refresh to update auth state
     } catch (err) {
+      console.error('Login error:', err);
       setError(err instanceof Error ? err.message : 'An error occurred during login');
     } finally {
       setLoading(false);

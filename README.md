@@ -1,83 +1,115 @@
 # ConnectU
 
-ConnectU is a platform designed to connect people through meaningful questions. Users can create forms with thoughtful questions that help reveal values and perspectives. After gathering responses, ConnectU matches people with similar perspectives using AI-powered embedding similarity.
+A web application for creating forms, collecting responses, and connecting people based on similarities in their responses.
 
 ## Features
 
-- **Create Connection Forms**: Design custom forms with thoughtful questions
-- **Share Forms**: Easily distribute forms to collect responses
-- **Generate Connections**: AI-powered matching connects people with similar perspectives
-- **Customize Matching**: Select group sizes and matching preferences
+- Create custom forms with multiple questions
+- Share forms with anyone via link
+- Collect responses from users
+- Process responses to generate detailed summaries using AI
+- Store vector embeddings of summaries for similarity matching
+- Generate connections between respondents based on similarity
+- View and manage connections
 
 ## Tech Stack
 
-- **Frontend**: React, Next.js, Tailwind CSS
-- **Authentication**: Supabase Auth
-- **Database**: Supabase
-- **Vector Database**: Qdrant for storing and querying embeddings
-- **AI**: OpenAI API for generating text embeddings
+- **Frontend**: Next.js, React, TypeScript, Tailwind CSS
+- **Database**: Supabase (PostgreSQL)
+- **Vector Database**: Qdrant
+- **AI**: OpenAI for embeddings and summary generation
 
-## Getting Started
+## Setup
 
 ### Prerequisites
 
-- Node.js 18+ and npm
+- Node.js 16+
+- npm or yarn
 - Supabase account
+- Qdrant account (or self-hosted instance)
 - OpenAI API key
-- Qdrant instance (cloud or self-hosted)
+
+### Environment Variables
+
+Create a `.env.local` file in the root directory with the following variables:
+
+```
+# Supabase configuration
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# OpenAI API
+OPENAI_API_KEY=your_openai_api_key
+
+# Qdrant Configuration
+QDRANT_URL=your_qdrant_url
+QDRANT_API_KEY=your_qdrant_api_key
+```
 
 ### Installation
 
-1. Clone the repository:
+1. Clone the repository
    ```
-   git clone https://github.com/yourusername/connectu.git
-   cd connectu
+   git clone https://github.com/yourusername/ConnectU.git
+   cd ConnectU
    ```
 
-2. Install dependencies:
+2. Install dependencies
    ```
    npm install
    ```
 
-3. Copy the environment variables file:
+3. Set up the database schema
    ```
-   cp .env.example .env.local
+   node scripts/apply-schema.js
    ```
 
-4. Update `.env.local` with your API keys and configuration.
-
-5. Run the development server:
+4. Run the development server
    ```
    npm run dev
    ```
 
-6. Open [http://localhost:3000](http://localhost:3000) in your browser.
+## Database Structure
 
-## Project Structure
+The application uses the following database tables:
 
-- `src/app`: Next.js app router with pages
-- `src/components`: Reusable React components
-- `src/lib`: Utility libraries for Supabase, OpenAI, etc.
-- `src/utils`: Helper functions
+- **profiles**: User profiles extending Supabase Auth
+- **forms**: Form definitions created by users
+- **questions**: Questions within forms
+- **responses**: Form responses from participants
+- **answers**: Individual answers to questions
+- **connections**: Connections between form respondents
 
-## Understanding the Connection Algorithm
+## Workflow
 
-ConnectU uses text embeddings to connect people:
+1. **Create a Form**: Users create forms with custom questions
+2. **Share the Form**: Forms can be shared with anyone via link
+3. **Collect Responses**: Respondents fill out the form
+4. **Stop Accepting Responses**: Form owner stops accepting responses
+5. **Process Responses**: AI generates summaries and embeddings
+6. **Generate Connections**: System finds connections between respondents
+7. **View Connections**: Form owner can view and manage connections
 
-1. When a form is submitted, responses are converted to embeddings using OpenAI's API
-2. These embeddings are stored in Qdrant, a vector database
-3. When generating connections, we query the embeddings to find similarity between respondents
-4. Groups are formed based on similarity scores and user-defined preferences
+## API Structure
 
-## Contributing
+### Supabase Functions
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+- User authentication and profile management
+- Form CRUD operations
+- Response collection and storage
+- Connection management
+
+### Qdrant Functions
+
+- Store and manage vector embeddings
+- Find similar responses
+- Calculate similarity scores
+
+### OpenAI Functions
+
+- Generate embeddings for responses
+- Create detailed summaries of responses
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- Inspired by the need for more meaningful connections in digital spaces
-- Built with Next.js, Supabase, and OpenAI technologies
+[MIT](LICENSE)

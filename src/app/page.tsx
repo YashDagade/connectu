@@ -243,7 +243,7 @@ export default function LandingPage() {
             <div className="flex justify-center">
               <Link
                 href="/dashboard"
-                className="px-8 py-4 bg-duke-darkblue text-white rounded-lg font-semibold text-lg shadow-lg hover:bg-duke-blue transition-colors"
+                className="px-8 py-4 bg-white text-black rounded-lg font-bold text-lg shadow-lg hover:bg-gray-100 transition-colors border border-blue-900"
               >
                 Get Started for Free
               </Link>
@@ -286,7 +286,7 @@ export default function LandingPage() {
                 />
                 <button
                   type="submit"
-                  className="px-6 py-3 bg-duke-blue text-white rounded-lg hover:bg-duke-lightblue transition-all font-medium shadow-lg whitespace-nowrap"
+                  className="px-6 py-3 bg-white text-black rounded-lg hover:bg-gray-100 transition-all font-bold shadow-lg whitespace-nowrap border border-blue-900"
                 >
                   Subscribe
                 </button>

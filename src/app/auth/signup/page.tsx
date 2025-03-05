@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -32,13 +33,41 @@ export default function SignupPage() {
         throw new Error('Passwords do not match');
       }
 
-      // In a real implementation, you would make an API call here
-      // This is a simulation for demonstration purposes
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Actual Supabase signup
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        }
+      });
+
+      if (signUpError) {
+        throw new Error(signUpError.message || 'Failed to create account');
+      }
+
+      if (!data.user) {
+        throw new Error('No user returned from signup');
+      }
+
+      // Create user profile in the database
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: data.user.id,
+          email: email,
+          display_name: email.split('@')[0], // Default display name is email username
+        });
+
+      if (profileError) {
+        console.error('Error creating profile:', profileError);
+      }
 
       // If signup is successful
       router.push('/dashboard');
+      router.refresh(); // Force a refresh to update auth state
     } catch (err) {
+      console.error('Signup error:', err);
       setError(err instanceof Error ? err.message : 'An error occurred during signup');
     } finally {
       setLoading(false);

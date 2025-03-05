@@ -2,29 +2,66 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { deleteForm, getUserForms } from '@/lib/supabase';
+import { deleteForm, getUserForms, getCurrentUser } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
 
 export default function Dashboard() {
   const [forms, setForms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
-    async function loadForms() {
+    async function checkAuthAndLoadForms() {
       try {
         setLoading(true);
-        const userForms = await getUserForms();
-        setForms(userForms);
+        // First check if the user is authenticated
+        const user = await getCurrentUser();
+        
+        if (!user) {
+          console.error("Dashboard: No authenticated user found");
+          setIsAuthenticated(false);
+          setError("You must be logged in to view your dashboard");
+          setLoading(false);
+          return;
+        }
+        
+        setIsAuthenticated(true);
+        console.log("Dashboard: Loading forms for user", user.id);
+        
+        // Now load the user's forms
+        try {
+          const userForms = await getUserForms(user.id);
+          console.log("Dashboard: Loaded forms", userForms?.length || 0);
+          setForms(userForms || []);
+        } catch (formError: any) {
+          console.error("Error loading forms:", formError);
+          setError("Failed to load your forms: " + (formError.message || "Unknown error"));
+        }
       } catch (err: any) {
-        console.error("Error loading forms:", err);
-        setError(err.message || "Failed to load your forms");
+        console.error("Authentication error:", err);
+        setIsAuthenticated(false);
+        setError("Authentication error: " + (err.message || "Please try logging in again"));
       } finally {
         setLoading(false);
       }
     }
 
-    loadForms();
+    checkAuthAndLoadForms();
   }, []);
+
+  // If not authenticated, redirect to login
+  useEffect(() => {
+    if (isAuthenticated === false) {
+      // Wait a moment to show the error before redirecting
+      const timeout = setTimeout(() => {
+        router.push('/auth/login');
+      }, 3000);
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [isAuthenticated, router]);
 
   const handleDelete = async (formId: string) => {
     if (!window.confirm('Are you sure you want to delete this form? This action cannot be undone.')) {

@@ -1,7 +1,18 @@
 import OpenAI from 'openai';
 
+// Initialize OpenAI client with proper API key handling for both client and server
+const apiKey = typeof window !== 'undefined' 
+  ? process.env.NEXT_PUBLIC_OPENAI_API_KEY 
+  : process.env.OPENAI_API_KEY;
+
+// Check if API key is available
+if (!apiKey) {
+  console.warn('OpenAI API key not found. Some features may not work correctly.');
+}
+
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: apiKey || 'dummy-key-for-client-initialization',
+  dangerouslyAllowBrowser: true // Allow browser usage
 });
 
 /**
@@ -11,6 +22,10 @@ const openai = new OpenAI({
  */
 export async function createEmbedding(text: string): Promise<number[]> {
   try {
+    if (!apiKey) {
+      throw new Error('OpenAI API key is not configured. Please set the OPENAI_API_KEY environment variable.');
+    }
+    
     const response = await openai.embeddings.create({
       model: 'text-embedding-3-large',
       input: text,

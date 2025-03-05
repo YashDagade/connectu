@@ -129,18 +129,23 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
   // Render intro screen
   if (showIntro) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
         <div className="max-w-3xl w-full">
-          <div className="bg-white rounded-lg shadow-form-card p-8 text-center">
-            <h1 className="text-3xl font-bold text-duke-blue mb-4">{form.title}</h1>
+          <div className="bg-white rounded-lg shadow-xl p-8 text-center border border-gray-200">
+            <h1 className="text-3xl font-bold text-gray-800 mb-4">{form.title}</h1>
             
             <div className="my-8">
               <p className="text-lg text-gray-700 mb-4">{form.description}</p>
               <div className="text-gray-600 mb-8">
                 <p className="mb-2">This form contains {questions.length} question{questions.length !== 1 ? 's' : ''}.</p>
                 {questions.some(q => q.time_limit !== null) && (
-                  <p className="text-yellow-600">
-                    Some questions have time limits. Be ready to answer within the given time.
+                  <p className="text-amber-600 font-semibold p-2 bg-amber-50 rounded-md inline-block">
+                    <span className="flex items-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                      </svg>
+                      Some questions have time limits. Be ready to answer within the given time.
+                    </span>
                   </p>
                 )}
               </div>
@@ -148,9 +153,9 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
             
             <button
               onClick={startForm}
-              className="px-8 py-4 bg-duke-blue text-white text-lg rounded-md hover:bg-duke-darkblue transition-colors focus:outline-none focus:ring-2 focus:ring-duke-blue focus:ring-offset-2"
+              className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-lg rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 shadow-lg font-medium"
             >
-              Start
+              Start Form
             </button>
           </div>
         </div>
@@ -161,10 +166,10 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
   // Render outro (submission) screen
   if (showOutro) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
         <div className="max-w-3xl w-full">
-          <div className="bg-white rounded-lg shadow-form-card p-8">
-            <h1 className="text-3xl font-bold text-duke-blue mb-4 text-center">Almost Done!</h1>
+          <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-200">
+            <h1 className="text-3xl font-bold text-gray-800 mb-4 text-center">Almost Done!</h1>
             
             <div className="my-8">
               <p className="text-lg text-gray-700 mb-6 text-center">
@@ -181,7 +186,7 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
                     id="name"
                     value={respondentName}
                     onChange={(e) => setRespondentName(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-duke-blue focus:border-duke-blue transition-colors"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     placeholder="Enter your full name"
                     required
                   />
@@ -196,7 +201,7 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
                     id="email"
                     value={respondentEmail}
                     onChange={(e) => setRespondentEmail(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-duke-blue focus:border-duke-blue transition-colors"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                     placeholder="Enter your email address"
                     required
                   />
@@ -208,7 +213,7 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="px-8 py-4 bg-duke-blue text-white text-lg rounded-md hover:bg-duke-darkblue transition-colors focus:outline-none focus:ring-2 focus:ring-duke-blue focus:ring-offset-2 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                className="px-8 py-4 bg-blue-600 text-white text-lg rounded-md hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-lg font-medium"
               >
                 {isSubmitting ? 'Submitting...' : 'Submit Responses'}
               </button>
@@ -221,17 +226,17 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
 
   // Render question screen
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
       <div className="max-w-3xl w-full">
-        <div className="bg-white rounded-lg shadow-form-card p-8">
+        <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-200">
           <div className="flex justify-between items-center mb-8">
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-gray-600 font-medium">
                 Question {currentQuestionIndex + 1} of {questions.length}
               </span>
-              <div className="w-48 h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div className="w-48 h-3 bg-gray-200 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-duke-blue rounded-full"
+                  className="h-full bg-blue-600 rounded-full"
                   style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
                 ></div>
               </div>
@@ -252,21 +257,15 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
               ref={answerInputRef}
               value={currentAnswer}
               onChange={(e) => setCurrentAnswer(e.target.value)}
+              className="w-full p-4 min-h-[150px] border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
               placeholder="Type your answer here..."
-              rows={6}
-              className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-duke-blue focus:border-duke-blue transition-colors"
-              autoFocus
             />
           </div>
           
           <div className="flex justify-end">
             <button
               onClick={handleNextQuestion}
-              className={`px-6 py-3 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                isLastQuestion
-                  ? 'bg-green-600 hover:bg-green-700 text-white focus:ring-green-500'
-                  : 'bg-duke-blue hover:bg-duke-darkblue text-white focus:ring-duke-blue'
-              }`}
+              className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-md font-medium"
             >
               {isLastQuestion ? 'Finish' : 'Next Question'}
             </button>

@@ -22,10 +22,15 @@ export default function FormPage({ params }: { params: { id: string } }) {
         setForm(form);
         setQuestions(questions);
         
-        // Check if current user is the form owner
-        const currentUser = await getCurrentUser();
-        if (currentUser && form.user_id === currentUser.id) {
-          setIsOwner(true);
+        try {
+          // Check if current user is the form owner - wrapped in try/catch to avoid errors for anonymous users
+          const currentUser = await getCurrentUser();
+          if (currentUser && form.user_id === currentUser.id) {
+            setIsOwner(true);
+          }
+        } catch (userError) {
+          // Silently handle authentication errors for anonymous users
+          console.log('Anonymous user viewing the form');
         }
       } catch (error) {
         console.error('Error loading form:', error);
@@ -37,6 +42,31 @@ export default function FormPage({ params }: { params: { id: string } }) {
 
     loadForm();
   }, [formId]);
+
+  const shareForm = () => {
+    const formLink = `${window.location.origin}/forms/${formId}`;
+    navigator.clipboard.writeText(formLink);
+    
+    // Create a temporary element for the toast notification
+    const toast = document.createElement('div');
+    toast.className = 'fixed top-4 right-4 bg-white text-gray-800 px-4 py-2 rounded-md shadow-lg z-50 flex items-center';
+    toast.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+        <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm9.707 5.707a1 1 0 00-1.414-1.414L9 12.586l-1.293-1.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+      </svg>
+      <span>Form link copied to clipboard!</span>
+    `;
+    document.body.appendChild(toast);
+    
+    // Remove the toast after 3 seconds
+    setTimeout(() => {
+      toast.classList.add('opacity-0', 'transition-opacity', 'duration-300');
+      setTimeout(() => {
+        document.body.removeChild(toast);
+      }, 300);
+    }, 3000);
+  };
 
   if (isLoading) {
     return (
@@ -90,6 +120,15 @@ export default function FormPage({ params }: { params: { id: string } }) {
           <div className="max-w-7xl mx-auto flex justify-between items-center">
             <h2 className="text-lg font-medium text-gray-800">Form Owner Controls</h2>
             <div className="flex gap-4">
+              <button
+                onClick={shareForm}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors flex items-center"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+                </svg>
+                Share Form
+              </button>
               <Link 
                 href={`/forms/${formId}/connections`}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"

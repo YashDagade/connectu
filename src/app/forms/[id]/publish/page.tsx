@@ -15,7 +15,10 @@ export default function PublishFormPage({ params }: { params: { id: string } }) 
   const [questions, setQuestions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isPublished, setIsPublished] = useState(false);
+  const [formLink, setFormLink] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   useEffect(() => {
     async function loadForm() {
@@ -24,9 +27,10 @@ export default function PublishFormPage({ params }: { params: { id: string } }) 
         setForm(form);
         setQuestions(questions);
         
-        // If form is already published, redirect to the form page
+        // If form is already published, set the published state
         if (form.is_published) {
-          router.push(`/forms/${formId}`);
+          setIsPublished(true);
+          setFormLink(`${window.location.origin}/forms/${formId}`);
         }
       } catch (error) {
         console.error('Error loading form:', error);
@@ -46,18 +50,37 @@ export default function PublishFormPage({ params }: { params: { id: string } }) 
       await publishForm(formId);
       
       // Generate a shareable link
-      const formLink = `${window.location.origin}/forms/${formId}`;
+      const link = `${window.location.origin}/forms/${formId}`;
+      setFormLink(link);
       
-      // Copy to clipboard
-      await navigator.clipboard.writeText(formLink);
-      
-      // Navigate to the dashboard
-      router.push('/dashboard');
+      // Set published state
+      setIsPublished(true);
+      setIsPublishing(false);
     } catch (error) {
       console.error('Error publishing form:', error);
       setError('Failed to publish the form. Please try again.');
       setIsPublishing(false);
     }
+  };
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(formLink);
+      setCopySuccess(true);
+      
+      // Reset success message after 3 seconds
+      setTimeout(() => {
+        setCopySuccess(false);
+      }, 3000);
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+    }
+  };
+
+  const shareViaEmail = () => {
+    const subject = encodeURIComponent(`Please fill out my form: ${form.title}`);
+    const body = encodeURIComponent(`I'd like you to fill out this form:\n\n${formLink}\n\nThank you!`);
+    window.open(`mailto:?subject=${subject}&body=${body}`);
   };
 
   if (isLoading) {
@@ -83,6 +106,92 @@ export default function PublishFormPage({ params }: { params: { id: string } }) 
           <Link href="/dashboard" className="px-6 py-3 bg-duke-blue text-white rounded-md hover:bg-duke-lightblue transition-colors inline-block shadow-lg">
             Return to Dashboard
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (isPublished) {
+    return (
+      <div className="min-h-screen bg-gray-900 py-12">
+        <div className="max-w-3xl mx-auto px-4">
+          <div className="bg-gray-800 rounded-lg shadow-lg p-8 border border-gray-700">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <h1 className="text-3xl font-bold text-white mb-2">Form Published!</h1>
+              <p className="text-gray-300">
+                Your form is now live and ready to be shared. Use the options below to share it with others.
+              </p>
+            </div>
+            
+            <div className="bg-gray-700 rounded-lg p-6 mb-8">
+              <h2 className="text-lg font-medium text-white mb-4">Share Your Form</h2>
+              
+              <div className="flex flex-col space-y-4">
+                <div>
+                  <label htmlFor="form-link" className="block text-sm font-medium text-gray-300 mb-2">
+                    Form Link
+                  </label>
+                  <div className="flex">
+                    <input
+                      type="text"
+                      id="form-link"
+                      value={formLink}
+                      readOnly
+                      className="flex-grow p-2 rounded-l border border-gray-600 bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-duke-blue"
+                    />
+                    <button
+                      onClick={copyToClipboard}
+                      className="px-4 py-2 bg-duke-blue text-white rounded-r hover:bg-duke-lightblue transition-colors"
+                    >
+                      {copySuccess ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="pt-4 border-t border-gray-600">
+                  <p className="text-sm text-gray-300 mb-4">Or share directly via:</p>
+                  <div className="flex space-x-4">
+                    <button
+                      onClick={shareViaEmail}
+                      className="flex items-center px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded transition-colors"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      Email
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4 justify-center">
+              <Link 
+                href={`/forms/${formId}`}
+                className="px-6 py-3 bg-gray-600 text-white rounded-md hover:bg-gray-500 transition-colors text-center shadow-md flex items-center justify-center"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                  <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                </svg>
+                View Form
+              </Link>
+              <Link 
+                href="/dashboard"
+                className="px-6 py-3 bg-duke-blue text-white rounded-md hover:bg-duke-lightblue transition-colors text-center shadow-lg flex items-center justify-center"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                </svg>
+                Return to Dashboard
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     );

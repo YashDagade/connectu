@@ -99,7 +99,8 @@ export async function getCurrentUser() {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     
     if (sessionError) {
-      console.error('Error getting session:', JSON.stringify(sessionError));
+      // For anonymous users, just log quietly instead of showing as an error
+      console.log('No active session:', JSON.stringify(sessionError));
       return null;
     }
     
@@ -108,32 +109,11 @@ export async function getCurrentUser() {
       return sessionData.session.user;
     }
     
-    // If no session, try refreshing
-    console.log('No session found, attempting refresh');
-    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-    
-    if (refreshError) {
-      console.error('Error refreshing session:', JSON.stringify(refreshError));
-    }
-    
-    // If refreshing didn't work, get the current user
-    if (!refreshData.session) {
-      console.log('No session after refresh, attempting getUser');
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      
-      if (userError) {
-        console.error('Error getting user:', JSON.stringify(userError));
-        return null;
-      }
-      
-      console.log('getCurrentUser (no session) result:', !!userData.user);
-      return userData.user;
-    }
-    
-    console.log('getCurrentUser (with session) result:', !!refreshData.user);
-    return refreshData.user;
+    // If no session, log it but don't try refreshing for anonymous users
+    console.log('No active session found');
+    return null;
   } catch (error) {
-    console.error('Unexpected error getting current user:', error instanceof Error ? error.message : JSON.stringify(error));
+    console.log('Session check failed, assuming anonymous user');
     return null;
   }
 }

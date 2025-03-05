@@ -80,7 +80,26 @@ export default function Dashboard() {
   const copyFormLink = (formId: string) => {
     const formLink = `${window.location.origin}/forms/${formId}`;
     navigator.clipboard.writeText(formLink);
-    alert('Form link copied to clipboard!');
+    
+    // Create a temporary element for the toast notification
+    const toast = document.createElement('div');
+    toast.className = 'fixed top-4 right-4 bg-duke-blue text-white px-4 py-2 rounded-md shadow-lg z-50 flex items-center';
+    toast.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+        <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm9.707 5.707a1 1 0 00-1.414-1.414L9 12.586l-1.293-1.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+      </svg>
+      <span>Form link copied to clipboard!</span>
+    `;
+    document.body.appendChild(toast);
+    
+    // Remove the toast after 3 seconds
+    setTimeout(() => {
+      toast.classList.add('opacity-0', 'transition-opacity', 'duration-300');
+      setTimeout(() => {
+        document.body.removeChild(toast);
+      }, 300);
+    }, 3000);
   };
 
   return (
@@ -173,12 +192,13 @@ export default function Dashboard() {
                             <>
                               <button
                                 onClick={() => copyFormLink(form.id)}
-                                className="text-duke-lightblue hover:text-white transition-colors"
-                                title="Copy Link"
+                                className="flex items-center px-2.5 py-1.5 bg-duke-blue bg-opacity-10 text-duke-lightblue rounded hover:bg-opacity-20 transition-colors"
+                                title="Share Form"
                               >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" />
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                  <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
                                 </svg>
+                                Share
                               </button>
                               
                               <Link

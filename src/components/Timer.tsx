@@ -9,17 +9,19 @@ interface TimerProps {
 }
 
 const Timer: React.FC<TimerProps> = ({ seconds, onTimeUp, isPaused = false }) => {
-  // Use a ref to store the end time to avoid issues with stale closures
-  const endTimeRef = useRef<number>(0);
+  // Main state for the timer
   const [timeLeft, setTimeLeft] = useState(seconds);
-  const [isActive, setIsActive] = useState(!isPaused);
-  const intervalIdRef = useRef<NodeJS.Timeout | null>(null);
-
+  
+  // References to maintain across renders
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const endTimeRef = useRef<number>(0);
+  const startTimeRef = useRef<number>(0);
+  
   // Format time as MM:SS
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  const formatTime = (secs: number): string => {
+    const mins = Math.floor(secs / 60);
+    const remainingSecs = secs % 60;
+    return `${mins.toString().padStart(2, '0')}:${remainingSecs.toString().padStart(2, '0')}`;
   };
 
   // Calculate percentage for the progress ring
@@ -27,80 +29,70 @@ const Timer: React.FC<TimerProps> = ({ seconds, onTimeUp, isPaused = false }) =>
     return ((seconds - timeLeft) / seconds) * 100;
   };
 
-  // Start the timer
-  const startTimer = () => {
-    // Clear any existing interval
-    if (intervalIdRef.current) {
-      clearInterval(intervalIdRef.current);
-      intervalIdRef.current = null;
+  // Initialize or reset timer when seconds prop changes
+  useEffect(() => {
+    // Set initial values
+    const nowTime = Date.now();
+    startTimeRef.current = nowTime;
+    endTimeRef.current = nowTime + seconds * 1000;
+    setTimeLeft(seconds);
+    
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [seconds]);
+
+  // Main timer effect
+  useEffect(() => {
+    // Don't run if paused
+    if (isPaused) {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      return;
     }
-
-    // Set the end time
-    endTimeRef.current = Date.now() + timeLeft * 1000;
-
-    // Set up the interval
-    intervalIdRef.current = setInterval(() => {
+    
+    // Clear any existing interval before setting a new one
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    
+    // Function to update the timer
+    const updateTimer = () => {
       const now = Date.now();
       const remaining = Math.max(0, Math.ceil((endTimeRef.current - now) / 1000));
       
+      // Set the new time left
       setTimeLeft(remaining);
       
+      // Check if time is up
       if (remaining <= 0) {
-        if (intervalIdRef.current) {
-          clearInterval(intervalIdRef.current);
-          intervalIdRef.current = null;
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
         }
         onTimeUp();
       }
-    }, 500); // Run every 500ms for smoother updates
-  };
-
-  // Stop the timer
-  const stopTimer = () => {
-    if (intervalIdRef.current) {
-      clearInterval(intervalIdRef.current);
-      intervalIdRef.current = null;
-    }
-  };
-
-  // Initialize timer on mount with clean reset
-  useEffect(() => {
-    // Initialize with fresh state on mount
-    setTimeLeft(seconds);
-    endTimeRef.current = Date.now() + seconds * 1000;
-    
-    // Start timer if active
-    if (!isPaused) {
-      startTimer();
-    }
-    
-    // Cleanup on unmount
-    return () => {
-      stopTimer();
     };
-  }, []); // Empty dependency array ensures this only runs on mount
-
-  // Reset the timer when seconds prop changes
-  useEffect(() => {
-    setTimeLeft(seconds);
-    if (isActive && !isPaused) {
-      endTimeRef.current = Date.now() + seconds * 1000;
-      startTimer();
-    }
-  }, [seconds]);
-
-  // Handle active state changes
-  useEffect(() => {
-    setIsActive(!isPaused);
     
-    if (isPaused) {
-      stopTimer();
-    } else if (timeLeft > 0) {
-      startTimer();
-    }
+    // Initial update
+    updateTimer();
     
-    return () => stopTimer();
-  }, [isPaused]);
+    // Set up the interval - use a slightly shorter interval to avoid missing seconds
+    timerRef.current = setInterval(updateTimer, 500);
+    
+    // Clean up
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [isPaused, onTimeUp, seconds]);
 
   // Get color based on time left
   const getColor = (): string => {
@@ -111,11 +103,12 @@ const Timer: React.FC<TimerProps> = ({ seconds, onTimeUp, isPaused = false }) =>
   };
 
   // SVG parameters for the progress ring
-  const size = 60;
-  const strokeWidth = 4;
+  const size = 90; // Increased from 60
+  const strokeWidth = 5; // Slightly thicker stroke
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const progressOffset = circumference - (calculateProgress() / 100) * circumference;
+  const currentColor = getColor();
 
   return (
     <div className="flex flex-col items-center">
@@ -132,7 +125,7 @@ const Timer: React.FC<TimerProps> = ({ seconds, onTimeUp, isPaused = false }) =>
           />
           {/* Progress circle */}
           <circle
-            stroke={getColor()}
+            stroke={currentColor}
             fill="transparent"
             strokeWidth={strokeWidth}
             strokeDasharray={circumference}
@@ -145,9 +138,9 @@ const Timer: React.FC<TimerProps> = ({ seconds, onTimeUp, isPaused = false }) =>
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
           <span 
-            className="text-sm font-bold" 
+            className="text-xl font-bold" // Increased text size
             style={{ 
-              color: getColor(),
+              color: currentColor,
               textShadow: '0px 0px 2px white, 0px 0px 4px white' 
             }}
           >
@@ -155,8 +148,9 @@ const Timer: React.FC<TimerProps> = ({ seconds, onTimeUp, isPaused = false }) =>
           </span>
         </div>
       </div>
-      <div className="mt-1 shadow-sm" style={{ transform: 'translateY(-3px)' }}>
-        <p className="text-xs font-medium bg-white px-3 py-1 rounded-full shadow-sm" style={{ color: '#374151' }}>
+      {/* Placed inside the bottom of the circle with better positioning */}
+      <div className="relative" style={{ marginTop: '-10px' }}>
+        <p className="text-xs font-medium bg-white px-3 py-1 rounded-full shadow-sm border border-gray-200" style={{ color: '#374151' }}>
           Time left
         </p>
       </div>

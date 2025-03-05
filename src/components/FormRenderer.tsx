@@ -96,8 +96,21 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
   };
 
   const handleSubmit = async () => {
-    if (!respondentName.trim() || !respondentEmail.trim()) {
-      alert('Please provide your name and email');
+    // Email validation regex
+    const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    
+    if (!respondentName.trim()) {
+      alert('Please provide your name');
+      return;
+    }
+    
+    if (!respondentEmail.trim()) {
+      alert('Please provide your email address');
+      return;
+    }
+    
+    if (!emailRegex.test(respondentEmail.trim())) {
+      alert('Please provide a valid email address');
       return;
     }
     
@@ -123,6 +136,15 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
       console.error('Error submitting form:', error);
       alert('Failed to submit your responses. Please try again.');
       setIsSubmitting(false);
+    }
+  };
+
+  // Handle key command for next question
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Check for Command+Enter (Mac) or Ctrl+Enter (Windows/Linux)
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault();
+      handleNextQuestion();
     }
   };
 
@@ -189,6 +211,12 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
                     id="name"
                     value={respondentName}
                     onChange={(e) => setRespondentName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                        e.preventDefault();
+                        document.getElementById('email')?.focus();
+                      }
+                    }}
                     className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-duke-blue focus:border-duke-blue transition-colors"
                     placeholder="Enter your full name"
                     required
@@ -204,6 +232,12 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
                     id="email"
                     value={respondentEmail}
                     onChange={(e) => setRespondentEmail(e.target.value)}
+                    onKeyDown={(e) => {
+                      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSubmit();
+                      }
+                    }}
                     className="w-full px-4 py-3 border border-gray-300 rounded-md text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-duke-blue focus:border-duke-blue transition-colors"
                     placeholder="Enter your email address"
                     required
@@ -254,7 +288,7 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
             {hasTimeLimit && (
               <div className="bg-white p-2 rounded-full shadow-md border border-gray-200">
                 <Timer
-                  key={currentQuestion.id}
+                  key={`question-timer-${currentQuestionIndex}`}
                   seconds={currentQuestion.time_limit || 60}
                   onTimeUp={handleTimeUp}
                 />
@@ -269,6 +303,7 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
               ref={answerInputRef}
               value={currentAnswer}
               onChange={(e) => setCurrentAnswer(e.target.value)}
+              onKeyDown={handleKeyDown}
               className="w-full p-4 min-h-[150px] border border-gray-300 rounded-md text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-duke-blue focus:border-duke-blue transition-colors placeholder-gray-500"
               placeholder="Type your answer here..."
               style={{ color: '#000000' }}

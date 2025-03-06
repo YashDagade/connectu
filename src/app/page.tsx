@@ -1,11 +1,44 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function LandingPage() {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [signoutMessage, setSignoutMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Check URL for signout parameter which could be passed by the Navbar component
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('signout') && params.get('signout') === 'success') {
+      setSignoutMessage('You have been signed out successfully.');
+      
+      // Clear the URL parameter without refreshing the page
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // Auto-dismiss after 5 seconds
+      setTimeout(() => {
+        setSignoutMessage(null);
+      }, 5000);
+    }
+    
+    // Create notification for sign-out (this will work with the event listener set in Navbar)
+    const handleSignoutToast = () => {
+      setSignoutMessage('You have been signed out successfully.');
+      
+      // Auto-dismiss after 5 seconds
+      setTimeout(() => {
+        setSignoutMessage(null);
+      }, 5000);
+    };
+    
+    window.addEventListener('signout-success', handleSignoutToast);
+    
+    return () => {
+      window.removeEventListener('signout-success', handleSignoutToast);
+    };
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -15,6 +48,24 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-900 text-white">
+      {/* Sign out message */}
+      {signoutMessage && (
+        <div className="fixed top-4 right-4 bg-green-600 text-white px-4 py-3 rounded-md shadow-lg z-50 flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+          <span>{signoutMessage}</span>
+          <button 
+            onClick={() => setSignoutMessage(null)} 
+            className="ml-2 text-white hover:text-gray-200"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* Hero Section */}
       <section className="relative bg-gradient-to-b from-black to-gray-900 text-white pt-24">
         <div className="absolute inset-0 bg-[url('/hero-pattern.svg')] bg-no-repeat bg-cover opacity-10"></div>

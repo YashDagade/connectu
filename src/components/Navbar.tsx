@@ -58,10 +58,14 @@ export default function Navbar() {
               setUserName(user.email.split('@')[0]);
             }
           }
+        } else {
+          // Clear user name if not authenticated
+          setUserName('');
         }
       } catch (error) {
         console.error("Error checking auth:", error instanceof Error ? error.message : JSON.stringify(error));
         setIsAuthenticated(false);
+        setUserName('');
       } finally {
         setIsLoading(false);
       }
@@ -94,7 +98,8 @@ export default function Navbar() {
             }
           }
         } else {
-          setUserName('User');
+          // Explicitly clear user name when signed out
+          setUserName('');
         }
       }
     );
@@ -108,9 +113,9 @@ export default function Navbar() {
     try {
       console.log("Navbar: Signing out");
       
-      // Clear local state first in case sign-out API fails
+      // Remove any temporary local session state
       setIsAuthenticated(false);
-      setUserName('User');
+      setUserName('');  // Don't set to 'User', clear it completely
       
       // Perform the sign out operation
       const { error } = await supabase.auth.signOut();
@@ -122,24 +127,7 @@ export default function Navbar() {
       
       console.log("Navbar: Sign out successful");
       
-      // Try two approaches for navigation to ensure it works:
-      // 1. Use Next.js router first for a clean navigation
-      router.push('/');
-      
-      // 2. After a short delay, force a page refresh as a backup
-      // This helps ensure all auth state is fully cleared
-      setTimeout(() => {
-        console.log("Navbar: Forcing page refresh for complete sign-out");
-        window.location.href = '/';
-      }, 300);
-    } catch (error) {
-      console.error('Error signing out:', error instanceof Error ? error.message : JSON.stringify(error));
-      
-      // Even if sign-out via API fails, we'll force a sign-out by clearing local storage
-      // and redirecting to home
-      console.log("Navbar: Attempting forced sign-out despite error");
-      
-      // Force clear supabase session from storage
+      // Force clear any potential Supabase session data from storage
       try {
         localStorage.removeItem('supabase.auth.token');
         localStorage.removeItem('connectu-auth-token');
@@ -147,8 +135,48 @@ export default function Navbar() {
         console.error('Failed to clear local storage:', storageError);
       }
       
-      // Force a hard refresh to start fresh
-      window.location.href = '/';
+      // Create a toast message that will be shown on the landing page
+      const createSignOutToast = () => {
+        const toast = document.createElement('div');
+        toast.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-3 rounded-md shadow-lg z-50 flex items-center';
+        toast.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+          </svg>
+          <span>You have been signed out successfully</span>
+        `;
+        document.body.appendChild(toast);
+        
+        // Remove the toast after 4 seconds
+        setTimeout(() => {
+          toast.classList.add('opacity-0', 'transition-opacity', 'duration-300');
+          setTimeout(() => {
+            if (document.body.contains(toast)) {
+              document.body.removeChild(toast);
+            }
+          }, 300);
+        }, 4000);
+      };
+      
+      // Force a hard refresh to the home page
+      window.location.href = '/?signout=success';
+      
+      // Add event to show toast after navigation completes
+      window.addEventListener('load', createSignOutToast);
+      
+    } catch (error) {
+      console.error('Error signing out:', error instanceof Error ? error.message : JSON.stringify(error));
+      
+      // Even if sign-out via API fails, we'll force a sign-out by clearing storage and redirecting
+      try {
+        localStorage.removeItem('supabase.auth.token');
+        localStorage.removeItem('connectu-auth-token');
+      } catch (storageError) {
+        console.error('Failed to clear local storage:', storageError);
+      }
+      
+      // Force a hard refresh to the home page
+      window.location.href = '/?signout=success';
     }
   };
   
@@ -208,7 +236,11 @@ export default function Navbar() {
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-300">{userName}</span>
+                {isLoading ? (
+                  <div className="h-5 w-20 bg-gray-700 animate-pulse rounded"></div>
+                ) : (
+                  <span className="text-sm text-gray-300">{userName}</span>
+                )}
                 <button
                   onClick={handleLogout}
                   className="inline-flex items-center px-3 py-1.5 border border-gray-700 text-sm font-medium rounded-md text-white bg-gray-800 hover:bg-gray-700 transition-colors"
@@ -296,7 +328,11 @@ export default function Navbar() {
           <div className="pt-4 pb-3 border-t border-gray-800">
             {isAuthenticated ? (
               <div className="space-y-1">
-                <div className="px-4 py-2 text-base font-medium text-gray-300">Welcome, {userName}</div>
+                {isLoading ? (
+                  <div className="h-5 w-24 bg-gray-700 animate-pulse rounded mx-4 my-2"></div>
+                ) : (
+                  <div className="px-4 py-2 text-base font-medium text-gray-300">Welcome, {userName}</div>
+                )}
                 <button
                   onClick={handleLogout}
                   className="block w-full text-left pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-300 hover:bg-gray-800 hover:border-gray-600 hover:text-white"

@@ -235,7 +235,7 @@ export default function LandingPage() {
             </div>
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">What Users Say</h2>
             <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Real stories from people who've made meaningful connections through our platform.
+              Real stories from people who&apos;ve made meaningful connections through our platform.
             </p>
           </div>
           
@@ -249,7 +249,7 @@ export default function LandingPage() {
                 </div>
               </div>
               <p className="text-gray-300">
-                "ConnectU has revolutionized our team-building process. We've seen a remarkable improvement in team cohesion after using the platform to match colleagues based on communication styles."
+                &ldquo;ConnectU has revolutionized our team-building process. We&apos;ve seen a remarkable improvement in team cohesion after using the platform to match colleagues based on communication styles.&rdquo;
               </p>
             </div>
             
@@ -262,7 +262,7 @@ export default function LandingPage() {
                 </div>
               </div>
               <p className="text-gray-300">
-                "The depth of insight ConnectU provides is unmatched. It's not just about matching people—it's about understanding the why behind compatibility."
+                &ldquo;The depth of insight ConnectU provides is unmatched. It&apos;s not just about matching people—it&apos;s about understanding the why behind compatibility.&rdquo;
               </p>
             </div>
             
@@ -275,7 +275,7 @@ export default function LandingPage() {
                 </div>
               </div>
               <p className="text-gray-300">
-                "Our student mentorship program has been transformed with ConnectU. The timed responses create authenticity that traditional matching systems miss completely."
+                &ldquo;Our student mentorship program has been transformed with ConnectU. The timed responses create authenticity that traditional matching systems miss completely.&rdquo;
               </p>
             </div>
           </div>
@@ -323,7 +323,7 @@ export default function LandingPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <h3 className="text-xl font-medium text-white mb-2">Thank You!</h3>
-                <p className="text-gray-300">You've been added to our newsletter.</p>
+                <p className="text-gray-300">You&apos;ve been added to our newsletter.</p>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4">

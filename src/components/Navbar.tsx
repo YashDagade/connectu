@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { getCurrentUser, getCurrentUserProfile } from '@/lib/supabase';
+import { getCurrentUserProfile } from '@/lib/supabase';
 
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -12,7 +12,6 @@ export default function Navbar() {
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState('User');
   const pathname = usePathname();
-  const router = useRouter();
   
   // Check actual authentication status
   useEffect(() => {

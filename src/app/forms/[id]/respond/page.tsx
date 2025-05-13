@@ -1,18 +1,27 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useParams } from 'next/navigation';
-import { getFormById, createResponse, submitAnswers } from '@/lib/supabase';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter, useParams } from 'next/navigation';
+import { getFormById } from '@/lib/supabase';
 
 // Remove mock data and implement real fetching
 export default function RespondToForm() {
   const params = useParams();
-  const formId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : '';
   const router = useRouter();
+  const formId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : '';
   
-  const [form, setForm] = useState<any>(null);
-  const [questions, setQuestions] = useState<any[]>([]);
+  const [form, setForm] = useState<{
+    id: string;
+    title: string;
+    description: string;
+    is_accepting_responses: boolean;
+  } | null>(null);
+  const [questions, setQuestions] = useState<{
+    id: string;
+    text: string;
+    order: number;
+    time_limit: number | null;
+  }[]>([]);
   const [loading, setLoading] = useState(true);
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [name, setName] = useState('');
@@ -20,13 +29,7 @@ export default function RespondToForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  useEffect(() => {
-    if (formId) {
-      fetchFormData();
-    }
-  }, [formId]);
-  
-  const fetchFormData = async () => {
+  const fetchFormData = useCallback(async () => {
     try {
       const { form, questions } = await getFormById(formId);
       setForm(form);
@@ -37,7 +40,13 @@ export default function RespondToForm() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [formId]);
+  
+  useEffect(() => {
+    if (formId) {
+      fetchFormData();
+    }
+  }, [formId, fetchFormData]);
   
   const handleResponseChange = (questionId: string, value: string) => {
     setResponses({

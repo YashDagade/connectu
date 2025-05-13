@@ -112,11 +112,12 @@ const FormBuilder: React.FC = () => {
       
       // Redirect to the form preview
       router.push(`/forms/${form.id}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating form:', error);
       
+      const err = error as Error & { message?: string; status?: number };
       // Check if it's an authentication error
-      if (error.message?.includes('auth') || error.message?.includes('authenticated') || error.status === 401) {
+      if (err.message?.includes('auth') || err.message?.includes('authenticated') || err.status === 401) {
         setAuthError('Your session has expired. Please log in again to create a form.');
       } else {
         alert('Failed to create form. Please try again.');

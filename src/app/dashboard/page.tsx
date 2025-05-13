@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { deleteForm, getUserForms, getCurrentUser } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import { Form } from '@/lib/supabase';
 
 export default function Dashboard() {
-  const [forms, setForms] = useState<any[]>([]);
+  const [forms, setForms] = useState<Form[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -35,14 +36,16 @@ export default function Dashboard() {
           const userForms = await getUserForms(user.id);
           console.log("Dashboard: Loaded forms", userForms?.length || 0);
           setForms(userForms || []);
-        } catch (formError: any) {
-          console.error("Error loading forms:", formError);
-          setError("Failed to load your forms: " + (formError.message || "Unknown error"));
+        } catch (formError: unknown) {
+          const err = formError as Error & { message?: string };
+          console.error("Error loading forms:", err);
+          setError("Failed to load your forms: " + (err.message || "Unknown error"));
         }
-      } catch (err: any) {
-        console.error("Authentication error:", err);
+      } catch (err: unknown) {
+        const error = err as Error & { message?: string };
+        console.error("Authentication error:", error);
         setIsAuthenticated(false);
-        setError("Authentication error: " + (err.message || "Please try logging in again"));
+        setError("Authentication error: " + (error.message || "Please try logging in again"));
       } finally {
         setLoading(false);
       }
@@ -71,9 +74,10 @@ export default function Dashboard() {
     try {
       await deleteForm(formId);
       setForms(forms.filter(form => form.id !== formId));
-    } catch (err: any) {
-      console.error("Error deleting form:", err);
-      alert("Failed to delete form: " + err.message);
+    } catch (err: unknown) {
+      const error = err as Error & { message?: string };
+      console.error("Error deleting form:", error);
+      alert("Failed to delete form: " + (error.message || "Unknown error"));
     }
   };
 
@@ -173,7 +177,7 @@ export default function Dashboard() {
                         {new Date(form.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        {form.published ? (
+                        {form.is_published ? (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-duke-blue bg-opacity-20 text-duke-lightblue">
                             Published
                           </span>
@@ -184,11 +188,11 @@ export default function Dashboard() {
                         )}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-300">
-                        {form.response_count || 0}
+                        0 {/* Will be implemented in a future update */}
                       </td>
                       <td className="px-6 py-4 text-sm">
                         <div className="flex space-x-3">
-                          {form.published && (
+                          {form.is_published && (
                             <>
                               <button
                                 onClick={() => copyFormLink(form.id)}
@@ -223,7 +227,7 @@ export default function Dashboard() {
                             </svg>
                           </Link>
                           
-                          {!form.published && (
+                          {!form.is_published && (
                             <Link
                               href={`/forms/${form.id}/publish`}
                               className="text-duke-lightblue hover:text-white transition-colors"

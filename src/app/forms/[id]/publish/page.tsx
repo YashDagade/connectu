@@ -1,18 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { getFormById, publishForm } from '@/lib/supabase';
+import { useRouter, useParams } from 'next/navigation';
+import { getFormById, publishForm, Form, Question } from '@/lib/supabase';
 import Link from 'next/link';
 import React from 'react';
 
-export default function PublishFormPage({ params }: { params: { id: string } }) {
-  // Unwrap params before accessing id property
-  const unwrappedParams = React.use(params);
-  const formId = unwrappedParams.id;
+export default function PublishFormPage() {
+  const params = useParams();
+  const formId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : '';
   const router = useRouter();
-  const [form, setForm] = useState<any>(null);
-  const [questions, setQuestions] = useState<any[]>([]);
+  const [form, setForm] = useState<Form | null>(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
@@ -44,17 +43,18 @@ export default function PublishFormPage({ params }: { params: { id: string } }) 
   }, [formId, router]);
 
   const handlePublish = async () => {
-    setIsPublishing(true);
+    if (!form) return;
     
     try {
-      await publishForm(formId);
+      setIsPublishing(true);
+      await publishForm(form.id);
+      setIsPublished(true);
       
       // Generate a shareable link
       const link = `${window.location.origin}/forms/${formId}`;
       setFormLink(link);
       
       // Set published state
-      setIsPublished(true);
       setIsPublishing(false);
     } catch (error) {
       console.error('Error publishing form:', error);
@@ -78,6 +78,8 @@ export default function PublishFormPage({ params }: { params: { id: string } }) 
   };
 
   const shareViaEmail = () => {
+    if (!form) return;
+    
     const subject = encodeURIComponent(`Please fill out my form: ${form.title}`);
     const body = encodeURIComponent(`I'd like you to fill out this form:\n\n${formLink}\n\nThank you!`);
     window.open(`mailto:?subject=${subject}&body=${body}`);

@@ -2,17 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getFormById, getFormResponses } from '@/lib/supabase';
-import React from 'react';
+import { getFormById, getFormResponses, Form, Question, Response, Answer } from '@/lib/supabase';
+import { useParams } from 'next/navigation';
 
-export default function FormResultsPage({ params }: { params: { id: string } }) {
-  // Unwrap params before accessing id property
-  const unwrappedParams = React.use(params);
-  const formId = unwrappedParams.id;
-  const [form, setForm] = useState<any>(null);
-  const [questions, setQuestions] = useState<any[]>([]);
-  const [responses, setResponses] = useState<any[]>([]);
-  const [answers, setAnswers] = useState<any[]>([]);
+export default function FormResultsPage() {
+  const params = useParams();
+  const formId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : '';
+  const [form, setForm] = useState<Form | null>(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [responses, setResponses] = useState<Response[]>([]);
+  const [answers, setAnswers] = useState<Answer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,16 +38,9 @@ export default function FormResultsPage({ params }: { params: { id: string } }) 
     loadFormAndResponses();
   }, [formId]);
 
-  // Helper function to get answers for a specific response
-  const getResponseAnswers = (responseId: string) => {
-    return answers.filter(answer => answer.response_id === responseId);
-  };
-
-  // Helper function to get answer for a specific question in a response
+  // Find an answer for a specific question and response
   const getAnswerForQuestion = (responseId: string, questionId: string) => {
-    return answers.find(
-      answer => answer.response_id === responseId && answer.question_id === questionId
-    );
+    return answers.find(a => a.response_id === responseId && a.question_id === questionId);
   };
 
   // Helper to format time spent

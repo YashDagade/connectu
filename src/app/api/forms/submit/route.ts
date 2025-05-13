@@ -37,7 +37,7 @@ async function isServiceRoleWorking() {
   if (!supabaseAdmin) return false;
   
   try {
-    const { data, error } = await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from('forms')
       .select('id')
       .limit(1);

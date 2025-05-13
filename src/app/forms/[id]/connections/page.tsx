@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import React from 'react';
 import {
@@ -9,7 +9,10 @@ import {
   getFormConnections,
   processFormResponses,
   generateAndStoreConnections,
-  stopAcceptingResponses
+  stopAcceptingResponses,
+  Form,
+  Response,
+  Connection
 } from '@/lib/supabase';
 
 export default function FormConnectionsPage() {
@@ -17,20 +20,14 @@ export default function FormConnectionsPage() {
   const router = useRouter();
   const formId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : '';
   
-  const [form, setForm] = useState<any>(null);
+  const [form, setForm] = useState<Form | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [connecting, setConnecting] = useState(false);
-  const [connections, setConnections] = useState<any[]>([]);
-  const [responses, setResponses] = useState<any[]>([]);
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [responses, setResponses] = useState<Response[]>([]);
   
-  useEffect(() => {
-    if (formId) {
-      loadFormData();
-    }
-  }, [formId]);
-  
-  async function loadFormData() {
+  const loadFormData = useCallback(async () => {
     setLoading(true);
     try {
       // Load form data
@@ -52,7 +49,13 @@ export default function FormConnectionsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [formId]);
+  
+  useEffect(() => {
+    if (formId) {
+      loadFormData();
+    }
+  }, [formId, loadFormData]);
   
   async function handleStopAcceptingResponses() {
     try {
@@ -100,6 +103,14 @@ export default function FormConnectionsPage() {
       setConnecting(false);
     }
   }
+  
+  const getResponse1 = (connection: Connection) => {
+    return responses.find(r => r.id === connection.response1_id);
+  };
+  
+  const getResponse2 = (connection: Connection) => {
+    return responses.find(r => r.id === connection.response2_id);
+  };
   
   if (loading) {
     return (
@@ -207,25 +218,25 @@ export default function FormConnectionsPage() {
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="bg-gray-700 p-4 rounded-lg">
                       <h4 className="text-lg font-medium mb-2">
-                        {connection.response1?.respondent_name}
+                        {getResponse1(connection)?.respondent_name}
                       </h4>
                       <p className="text-gray-300 text-sm mb-4">
-                        {connection.response1?.respondent_email}
+                        {getResponse1(connection)?.respondent_email}
                       </p>
                       <div className="text-gray-300 text-sm max-h-64 overflow-y-auto">
-                        {connection.response1?.summary}
+                        {getResponse1(connection)?.summary}
                       </div>
                     </div>
                     
                     <div className="bg-gray-700 p-4 rounded-lg">
                       <h4 className="text-lg font-medium mb-2">
-                        {connection.response2?.respondent_name}
+                        {getResponse2(connection)?.respondent_name}
                       </h4>
                       <p className="text-gray-300 text-sm mb-4">
-                        {connection.response2?.respondent_email}
+                        {getResponse2(connection)?.respondent_email}
                       </p>
                       <div className="text-gray-300 text-sm max-h-64 overflow-y-auto">
-                        {connection.response2?.summary}
+                        {getResponse2(connection)?.summary}
                       </div>
                     </div>
                   </div>

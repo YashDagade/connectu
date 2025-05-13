@@ -1,16 +1,16 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect } from 'react';
 import FormRenderer from '@/components/FormRenderer';
-import { getFormById, getCurrentUser } from '@/lib/supabase';
+import { getFormById, getCurrentUser, Form, Question } from '@/lib/supabase';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 
-export default function FormPage({ params }: { params: { id: string } }) {
-  // Properly unwrap params with React.use()
-  const unwrappedParams = use(params);
-  const formId = unwrappedParams.id;
-  const [form, setForm] = useState<any>(null);
-  const [questions, setQuestions] = useState<any[]>([]);
+export default function FormPage() {
+  const params = useParams();
+  const formId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : '';
+  const [form, setForm] = useState<Form | null>(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState(false);
@@ -28,7 +28,7 @@ export default function FormPage({ params }: { params: { id: string } }) {
           if (currentUser && form.user_id === currentUser.id) {
             setIsOwner(true);
           }
-        } catch (userError) {
+        } catch {
           // Silently handle authentication errors for anonymous users
           console.log('Anonymous user viewing the form');
         }

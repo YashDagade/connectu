@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Form, Question, createResponse, submitAnswers } from '@/lib/supabase';
+import { Form, Question } from '@/lib/supabase';
 import Timer from './Timer';
 
 interface FormRendererProps {
@@ -27,7 +27,6 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
   const [showIntro, setShowIntro] = useState(true);
   const [showOutro, setShowOutro] = useState(false);
   const [startTime, setStartTime] = useState<number | null>(null);
-  const [timeSpent, setTimeSpent] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const answerInputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -39,7 +38,6 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
   useEffect(() => {
     if (!showIntro && !showOutro) {
       setStartTime(Date.now());
-      setTimeSpent(0);
 
       // Focus the answer input
       setTimeout(() => {
@@ -56,7 +54,7 @@ const FormRenderer: React.FC<FormRendererProps> = ({ form, questions }) => {
     
     if (startTime && !showIntro && !showOutro) {
       interval = setInterval(() => {
-        setTimeSpent(Math.floor((Date.now() - startTime) / 1000));
+        // No need to update timeSpent as it's not used in the component
       }, 1000);
     }
     

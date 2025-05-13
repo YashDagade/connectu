@@ -1,15 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { getFormById, addQuestionsToForm, updateForm, updateQuestion, deleteQuestion } from '@/lib/supabase';
-import React from 'react';
 
-export default function EditFormPage({ params }: { params: { id: string } }) {
-  // Unwrap params before accessing id property
-  const unwrappedParams = React.use(params);
-  const formId = unwrappedParams.id;
+export default function EditFormPage() {
+  const params = useParams();
+  const formId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : '';
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');

@@ -4,12 +4,11 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getFormById } from '@/lib/supabase';
 import { Form } from '@/lib/supabase';
-import React from 'react';
+import { useParams } from 'next/navigation';
 
-export default function ThankYouPage({ params }: { params: { id: string } }) {
-  // Unwrap params before accessing id property
-  const unwrappedParams = React.use(params);
-  const formId = unwrappedParams.id;
+export default function ThankYouPage() {
+  const params = useParams();
+  const formId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : '';
   const [form, setForm] = useState<Form | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -53,10 +52,10 @@ export default function ThankYouPage({ params }: { params: { id: string } }) {
           
           <div className="my-6">
             <p className="text-lg text-gray-700 mb-4">
-              Your responses to "{form?.title || 'the form'}" have been successfully submitted.
+              Your responses to &ldquo;{form?.title || 'the form'}&rdquo; have been successfully submitted.
             </p>
             <p className="text-gray-600">
-              When the form creator finalizes the connections, you'll receive an email with your matches.
+              When the form creator finalizes the connections, you&apos;ll receive an email with your matches.
             </p>
           </div>
           

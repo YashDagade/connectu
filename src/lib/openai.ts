@@ -1,36 +1,43 @@
-import OpenAI from 'openai';
+import OpenAI from "openai";
+import { ensureServer } from "./env";
 
-// Initialize OpenAI client with proper API key handling for both client and server
-const apiKey = typeof window !== 'undefined' 
-  ? process.env.NEXT_PUBLIC_OPENAI_API_KEY 
-  : process.env.OPENAI_API_KEY;
+// Initialize OpenAI only on the server side
+let openai: OpenAI | null = null;
 
-// Check if API key is available
-if (!apiKey) {
-  console.warn('OpenAI API key not found. Some features may not work correctly.');
+function getOpenAIClient(): OpenAI {
+  ensureServer("getOpenAIClient");
+  
+  if (!openai) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY environment variable is not set");
+    }
+    
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
+  
+  return openai;
 }
 
-const openai = new OpenAI({
-  apiKey: apiKey || 'dummy-key-for-client-initialization',
-  dangerouslyAllowBrowser: true // Allow browser usage
-});
-
 /**
- * Creates an embedding for the given text using OpenAI's text-embedding-3-large model
- * @param text The text to create an embedding for
- * @returns A vector of floating point numbers representing the embedding
+ * Create an embedding for the given text
+ * This function must only be called from server-side code
  */
 export async function createEmbedding(text: string): Promise<number[]> {
+  ensureServer("createEmbedding");
+  
   try {
-    const response = await openai.embeddings.create({
-      model: "text-embedding-3-large",
+    const client = getOpenAIClient();
+    const response = await client.embeddings.create({
+      model: "text-embedding-3-large", 
       input: text,
     });
     
     return response.data[0].embedding;
   } catch (error) {
-    console.error('Failed to create embedding:', error);
-    throw error;
+    console.error("Error creating embedding:", error);
+    throw new Error("Error creating embedding");
   }
 }
 
@@ -44,13 +51,16 @@ export async function generatePersonSummary(
   answers: Record<string, string>,
   personName?: string
 ): Promise<string> {
+  ensureServer("generatePersonSummary");
+  
   try {
     const questionAnswerPairs = questions.map(q => ({
       question: q.text,
       answer: answers[q.id] || 'No answer provided'
     }));
     
-    const response = await openai.chat.completions.create({
+    const client = getOpenAIClient();
+    const response = await client.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
@@ -83,6 +93,4 @@ export async function generatePersonSummary(
     console.error('Error generating person summary:', error);
     return `A summary could not be generated due to an error.`;
   }
-}
-
-export { openai }; 
+} 

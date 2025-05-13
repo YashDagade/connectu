@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { generatePersonSummary } from './openai';
 import { storeResponseEmbedding, generateFormConnections } from './qdrant';
+import { ensureServer, isServer } from './env';
 
-// Log Supabase initialization for debugging
+// Initialize client-side Supabase client (with limited permissions)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
@@ -13,7 +14,36 @@ if (!supabaseUrl || !supabaseAnonKey) {
   });
 }
 
-// Initialize the Supabase client with improved browser support
+// Shared fetch implementation with improved error handling
+const enhancedFetch = (...args: Parameters<typeof fetch>) => {
+  return fetch(...args).then(async (response) => {
+    // Clone response to avoid consuming it
+    const clonedResponse = response.clone();
+    
+    // Only log errors
+    if (!response.ok) {
+      try {
+        const errorData = await clonedResponse.json();
+        console.error('Supabase fetch error:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+          errorData
+        });
+      } catch {
+        console.error('Supabase fetch error (not JSON):', {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url
+        });
+      }
+    }
+    
+    return response;
+  });
+};
+
+// Client-side Supabase client - safe to use in browser
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
@@ -25,42 +55,59 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     headers: {
       'X-Client-Info': 'ConnectU Web App',
     },
-    // Add debug log filtering to help identify actual errors
-    fetch: (...args) => {
-      // @ts-ignore - we know these are valid fetch args
-      return fetch(...args).then(async (response) => {
-        // Clone response to avoid consuming it
-        const clonedResponse = response.clone();
-        
-        // Only log errors
-        if (!response.ok) {
-          try {
-            const errorData = await clonedResponse.json();
-            console.error('Supabase fetch error:', {
-              status: response.status,
-              statusText: response.statusText,
-              url: response.url,
-              errorData
-            });
-          } catch (jsonError) {
-            console.error('Supabase fetch error (not JSON):', {
-              status: response.status,
-              statusText: response.statusText,
-              url: response.url
-            });
-          }
-        }
-        
-        return response;
-      });
-    }
+    fetch: enhancedFetch
   }
 });
 
+// Server-side admin Supabase client with service role key
+// This should NEVER be exposed to the client
+let _adminClient: ReturnType<typeof createClient> | null = null;
+
+function getAdminClient() {
+  ensureServer("getAdminClient");
+  
+  if (!_adminClient) {
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error("SUPABASE_SERVICE_ROLE_KEY environment variable is not set");
+    }
+    
+    _adminClient = createClient(
+      supabaseUrl,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+        global: {
+          headers: {
+            'X-Client-Info': 'ConnectU Server Admin',
+          },
+          fetch: enhancedFetch
+        }
+      }
+    );
+  }
+  
+  return _adminClient;
+}
+
+// Helper function to choose the appropriate client
+// Use admin client on server, regular client on browser
+export function getSupabaseClient(requireAdmin = false) {
+  if (requireAdmin) {
+    return getAdminClient();
+  }
+  
+  return isServer ? getAdminClient() : supabase;
+}
+
 // Verify the client is working
-supabase.auth.onAuthStateChange((event, session) => {
-  console.log('Supabase auth state changed:', event, session?.user?.id || 'No active session');
-});
+if (typeof window !== 'undefined') {
+  supabase.auth.onAuthStateChange((event, session) => {
+    console.log('Supabase auth state changed:', event, session?.user?.id || 'No active session');
+  });
+}
 
 // Database schema types
 export type Question = {
@@ -146,7 +193,7 @@ export async function getCurrentUser() {
     // If no session, log it but don't try refreshing for anonymous users
     console.log('No active session found');
     return null;
-  } catch (error) {
+  } catch {
     console.log('Session check failed, assuming anonymous user');
     return null;
   }

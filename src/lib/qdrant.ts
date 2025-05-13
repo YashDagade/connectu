@@ -1,28 +1,187 @@
-import { QdrantClient } from '@qdrant/js-client-rest';
+import { QdrantClient } from "@qdrant/js-client-rest";
 import { createEmbedding } from './openai';
+import { ensureServer } from "./env";
 
-// Initialize the Qdrant client with proper API key handling for both client and server
-const qdrantUrl = typeof window !== 'undefined'
-  ? process.env.NEXT_PUBLIC_QDRANT_URL
-  : process.env.QDRANT_URL;
+export const RESPONSES_COLLECTION = "responses";
 
-const qdrantApiKey = typeof window !== 'undefined'
-  ? process.env.NEXT_PUBLIC_QDRANT_API_KEY
-  : process.env.QDRANT_API_KEY;
+// Initialize Qdrant client only on the server side
+let _qdrantClient: QdrantClient | null = null;
 
-// Check if Qdrant configuration is available
-if (!qdrantUrl || !qdrantApiKey) {
-  console.warn('Qdrant configuration not found. Some features may not work correctly.');
+function getQdrantClient(): QdrantClient {
+  ensureServer("getQdrantClient");
+  
+  if (!_qdrantClient) {
+    if (!process.env.QDRANT_URL || !process.env.QDRANT_API_KEY) {
+      throw new Error("QDRANT_URL or QDRANT_API_KEY environment variables are not set");
+    }
+    
+    _qdrantClient = new QdrantClient({
+      url: process.env.QDRANT_URL,
+      apiKey: process.env.QDRANT_API_KEY,
+    });
+  }
+  
+  return _qdrantClient;
 }
 
-// Initialize the Qdrant client
-export const qdrantClient = new QdrantClient({
-  url: qdrantUrl || '',
-  apiKey: qdrantApiKey,
-});
+// Define types for Qdrant search params
+type SearchParams = {
+  vector: number[];
+  limit: number;
+  filter?: Record<string, unknown>;
+  [key: string]: unknown;
+};
 
-// Collection name for form responses
-const RESPONSES_COLLECTION = 'form_responses';
+// Define types for Qdrant retrieve params
+type RetrieveParams = {
+  with_vector?: boolean;
+  [key: string]: unknown;
+};
+
+// Define types for Qdrant upsert params
+type UpsertParams = {
+  wait?: boolean;
+  points: Array<{
+    id: string | number;
+    vector: number[];
+    payload?: Record<string, unknown>;
+  }>;
+};
+
+// Define types for Qdrant scroll params
+type ScrollParams = {
+  filter?: Record<string, unknown>;
+  limit?: number;
+  offset?: number;
+  with_vectors?: boolean;
+  with_payload?: boolean;
+  [key: string]: unknown;
+};
+
+// Re-export for convenience, but ensure it's only used server-side
+export const qdrantClient = {
+  // Wrap all methods to ensure they're only called on the server
+  search: async (collectionName: string, searchParams: SearchParams) => {
+    ensureServer("qdrantClient.search");
+    return getQdrantClient().search(collectionName, searchParams);
+  },
+  
+  retrieve: async (collectionName: string, ids: string[], params?: RetrieveParams) => {
+    ensureServer("qdrantClient.retrieve");
+    // Convert array of IDs to an object with ids property as required by the Qdrant API
+    return getQdrantClient().retrieve(collectionName, { ids, ...params });
+  },
+  
+  getCollections: async () => {
+    ensureServer("qdrantClient.getCollections");
+    return getQdrantClient().getCollections();
+  },
+  
+  createCollection: async (collectionName: string, config: Record<string, unknown>) => {
+    ensureServer("qdrantClient.createCollection");
+    return getQdrantClient().createCollection(collectionName, config);
+  },
+  
+  upsert: async (collectionName: string, config: UpsertParams) => {
+    ensureServer("qdrantClient.upsert");
+    return getQdrantClient().upsert(collectionName, config);
+  },
+  
+  scroll: async (collectionName: string, params: ScrollParams) => {
+    ensureServer("qdrantClient.scroll");
+    return getQdrantClient().scroll(collectionName, params);
+  },
+  
+  // Add other methods you need to use
+};
+
+// Calculate cosine similarity between two vectors
+export function cosineSimilarity(a: number[], b: number[]): number {
+  // Don't need to check for server/client as this is a pure math function
+  if (a.length !== b.length) {
+    throw new Error("Vectors must have the same length");
+  }
+  
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  
+  if (normA === 0 || normB === 0) {
+    return 0;
+  }
+  
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+
+export async function findSimilarResponses(
+  formId: string,
+  responseId: string,
+  vector: number[],
+  limit: number = 5
+) {
+  ensureServer("findSimilarResponses");
+  
+  try {
+    const searchResults = await qdrantClient.search(RESPONSES_COLLECTION, {
+      vector: vector,
+      limit: limit,
+      filter: {
+        must: [
+          {
+            key: "formId",
+            match: {
+              value: formId,
+            },
+          },
+          {
+            key: "responseId",
+            match: {
+              value: responseId,
+            },
+          },
+        ],
+      },
+    });
+    
+    return searchResults;
+  } catch (error) {
+    console.error("Error finding similar responses:", error);
+    throw error;
+  }
+}
+
+export async function getSimilarity(pointId1: string, pointId2: string): Promise<number> {
+  ensureServer("getSimilarity");
+  
+  try {
+    // Get vectors for both points
+    const [point1, point2] = await Promise.all([
+      qdrantClient.retrieve(RESPONSES_COLLECTION, [pointId1], { with_vector: true }),
+      qdrantClient.retrieve(RESPONSES_COLLECTION, [pointId2], { with_vector: true }),
+    ]);
+    
+    // Check if we got back vectors for both points
+    if (!point1[0]?.vector || !point2[0]?.vector) {
+      throw new Error("Failed to retrieve vectors for both points");
+    }
+    
+    // Ensure vectors are numeric arrays
+    const vector1 = point1[0].vector as number[];
+    const vector2 = point2[0].vector as number[];
+    
+    // Calculate cosine similarity between the two vectors
+    return cosineSimilarity(vector1, vector2);
+  } catch (error) {
+    console.error("Error calculating similarity:", error);
+    throw error;
+  }
+}
 
 // Create a collection for storing form response embeddings if it doesn't exist
 export async function ensureCollectionExists() {
@@ -105,60 +264,6 @@ export async function storeResponseEmbedding(
 }
 
 /**
- * Finds the most similar responses to a given response
- * @param formId The ID of the form
- * @param responseId The ID of the response to find matches for
- * @param limit The maximum number of matches to return
- * @returns Array of matches with similarity scores
- */
-export async function findSimilarResponses(
-  formId: string,
-  responseId: string,
-  limit: number = 10
-) {
-  try {
-    const pointId = `${formId}_${responseId}`;
-    
-    // Search for similar responses within the same form
-    const searchResult = await qdrantClient.search(RESPONSES_COLLECTION, {
-      vector: null, // We'll use the stored vector as the query
-      with_vector: false, // No need to return the vector
-      with_payload: true, // Include payload in results
-      limit: limit + 1, // +1 because the query itself will be included
-      filter: {
-        must: [
-          {
-            key: 'form_id',
-            match: {
-              value: formId,
-            },
-          },
-        ],
-      },
-      using: 'id', // Search using the ID of the point
-      search_params: {
-        exact: false,
-        ef: 128, // Increase for better recall
-      },
-      id: pointId, // ID of the point to use as the query
-    });
-    
-    // Filter out the query point itself and convert to a more usable format
-    return searchResult.filter(
-      (match) => match.payload?.response_id !== responseId
-    ).map((match) => ({
-      responseId: match.payload?.response_id,
-      respondentName: match.payload?.respondent_name,
-      respondentEmail: match.payload?.respondent_email,
-      similarityScore: match.score,
-    }));
-  } catch (error) {
-    console.error('Error finding similar responses:', error);
-    throw error;
-  }
-}
-
-/**
  * Generates connections between all responses in a form
  * @param formId The ID of the form
  * @returns Array of connections between responses
@@ -193,10 +298,7 @@ export async function generateFormConnections(formId: string) {
         const response2 = responses[j];
         
         // Find similarity between the two responses
-        const similarity = await findSimilarityBetweenPoints(
-          response1.id.toString(),
-          response2.id.toString()
-        );
+        const similarity = await getSimilarity(response1.id.toString(), response2.id.toString());
         
         connections.push({
           response1Id: response1.payload?.response_id,
@@ -214,64 +316,4 @@ export async function generateFormConnections(formId: string) {
     console.error('Error generating form connections:', error);
     throw error;
   }
-}
-
-/**
- * Finds the similarity score between two points in Qdrant
- * @param pointId1 The ID of the first point
- * @param pointId2 The ID of the second point
- * @returns The similarity score between the two points
- */
-async function findSimilarityBetweenPoints(pointId1: string, pointId2: string): Promise<number> {
-  try {
-    // Get the vectors for both points
-    const [point1, point2] = await Promise.all([
-      qdrantClient.getPoints(RESPONSES_COLLECTION, {
-        ids: [pointId1],
-        with_vector: true,
-      }),
-      qdrantClient.getPoints(RESPONSES_COLLECTION, {
-        ids: [pointId2],
-        with_vector: true,
-      }),
-    ]);
-    
-    if (!point1.points[0]?.vector || !point2.points[0]?.vector) {
-      throw new Error('Could not retrieve vectors for points');
-    }
-    
-    // Calculate cosine similarity
-    const vector1 = point1.points[0].vector as number[];
-    const vector2 = point2.points[0].vector as number[];
-    
-    return calculateCosineSimilarity(vector1, vector2);
-  } catch (error) {
-    console.error('Error calculating similarity between points:', error);
-    throw error;
-  }
-}
-
-/**
- * Calculates the cosine similarity between two vectors
- * @param vec1 First vector
- * @param vec2 Second vector
- * @returns Cosine similarity score (between -1 and 1, higher is more similar)
- */
-function calculateCosineSimilarity(vec1: number[], vec2: number[]): number {
-  let dotProduct = 0;
-  let mag1 = 0;
-  let mag2 = 0;
-  
-  for (let i = 0; i < vec1.length; i++) {
-    dotProduct += vec1[i] * vec2[i];
-    mag1 += vec1[i] * vec1[i];
-    mag2 += vec2[i] * vec2[i];
-  }
-  
-  mag1 = Math.sqrt(mag1);
-  mag2 = Math.sqrt(mag2);
-  
-  if (mag1 === 0 || mag2 === 0) return 0;
-  
-  return dotProduct / (mag1 * mag2);
 } 
